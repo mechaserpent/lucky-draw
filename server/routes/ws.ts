@@ -7,7 +7,8 @@ import {
   startGame, 
   performDraw, 
   nextDrawer,
-  restartGame
+  restartGame,
+  updateRoomMaxPlayers
 } from '../utils/room'
 
 interface Peer {
@@ -76,12 +77,30 @@ export default defineWebSocketHandler({
 
         case 'join_room': {
           const { roomId, playerName } = msg.payload
+          const existingRoom = getRoom(roomId.toUpperCase())
+          
+          if (!existingRoom) {
+            peer.send(JSON.stringify({
+              type: 'error',
+              payload: { message: '房間不存在或已解散' }
+            }))
+            return
+          }
+          
+          if (existingRoom.players.length >= existingRoom.maxPlayers) {
+            peer.send(JSON.stringify({
+              type: 'error',
+              payload: { message: '房間人數已滿，請聯繫房主增加人數上限' }
+            }))
+            return
+          }
+          
           const room = joinRoom(roomId.toUpperCase(), playerId, playerName)
           
           if (!room) {
             peer.send(JSON.stringify({
               type: 'error',
-              payload: { message: '無法加入房間，房間不存在或已滿' }
+              payload: { message: '無法加入房間，遊戲可能已經開始' }
             }))
             return
           }
@@ -156,7 +175,7 @@ export default defineWebSocketHandler({
           } else {
             peer.send(JSON.stringify({
               type: 'error',
-              payload: { message: '無法加入玩家，房間可能已滿' }
+              payload: { message: '無法加入玩家，房間人數已滿。請先在設定中增加人數上限。' }
             }))
           }
           break
@@ -320,6 +339,46 @@ export default defineWebSocketHandler({
             peer.send(JSON.stringify({
               type: 'game_restarted',
               payload: { room: restartedRoom }
+            }))
+          }
+          break
+        }
+
+        case 'update_max_players': {
+          if (!peerObj.roomId) return
+          
+          const room = getRoom(peerObj.roomId)
+          if (!room || room.hostId !== playerId) {
+            peer.send(JSON.stringify({
+              type: 'error',
+              payload: { message: '只有主機可以修改房間上限' }
+            }))
+            return
+          }
+          
+          const { maxPlayers } = msg.payload
+          if (typeof maxPlayers !== 'number' || !Number.isFinite(maxPlayers) || !Number.isInteger(maxPlayers)) {
+            peer.send(JSON.stringify({
+              type: 'error',
+              payload: { message: '無效的人數上限' }
+            }))
+            return
+          }
+          
+          const updatedRoom = updateRoomMaxPlayers(peerObj.roomId, playerId, maxPlayers)
+          if (updatedRoom) {
+            broadcastToRoom(updatedRoom.id, {
+              type: 'room_updated',
+              payload: { room: updatedRoom }
+            })
+            peer.send(JSON.stringify({
+              type: 'room_updated',
+              payload: { room: updatedRoom }
+            }))
+          } else {
+            peer.send(JSON.stringify({
+              type: 'error',
+              payload: { message: '無法修改房間上限，新上限不能小於目前人數' }
             }))
           }
           break

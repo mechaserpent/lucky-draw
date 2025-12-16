@@ -106,7 +106,7 @@
           >
             🎲 {{ allPlayersReady ? '開始遊戲' : '強制開始' }}
           </button>
-          <button class="btn btn-warning" @click="showSettingsModal = true">
+          <button class="btn btn-warning" @click="openSettingsModal">
             ⚙️ 設定
           </button>
           <button class="btn btn-danger" @click="showLeaveConfirmModal = true">
@@ -319,11 +319,23 @@
         <h3>⚙️ 房間設定</h3>
         <div style="margin: 15px 0; text-align: left;">
           <p><strong>🎲 Seed:</strong> {{ roomState?.seed }}</p>
-          <p><strong>👥 人數上限:</strong> {{ roomState?.maxPlayers }}</p>
           <p><strong>🏠 房間代碼:</strong> {{ roomState?.id }}</p>
+          
+          <div class="setting-row" style="margin-top: 15px;">
+            <label><strong>👥 人數上限:</strong></label>
+            <div class="max-players-input">
+              <button class="btn btn-sm" @click="decreaseMaxPlayers" :disabled="newMaxPlayers <= (roomState?.players.length || 2)">-</button>
+              <span class="max-players-value">{{ newMaxPlayers }}</span>
+              <button class="btn btn-sm" @click="increaseMaxPlayers" :disabled="newMaxPlayers >= 100">+</button>
+            </div>
+          </div>
+          <p v-if="newMaxPlayers < (roomState?.players.length || 0)" class="warning-text">
+            ⚠️ 人數上限不能小於目前人數 ({{ roomState?.players.length }})
+          </p>
         </div>
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showSettingsModal = false">關閉</button>
+          <button class="btn btn-secondary" @click="showSettingsModal = false">取消</button>
+          <button class="btn btn-primary" @click="saveRoomSettings" :disabled="newMaxPlayers < (roomState?.players.length || 2)">儲存設定</button>
         </div>
       </div>
     </div>
@@ -378,6 +390,7 @@ const showRoomDisbandModal = ref(false)
 
 // 表單數據
 const addPlayerName = ref('')
+const newMaxPlayers = ref(20)
 
 // 錯誤提示
 const showErrorToast = ref(false)
@@ -385,6 +398,7 @@ const errorMessage = ref('')
 
 // 抽獎動畫狀態
 const isDrawing = ref(false)
+const autoProgressTimeout = ref<number | null>(null)
 const showResult = ref(false)
 const drawBoxContent = ref('🎁')
 const resultGiftOwner = ref('')
@@ -458,6 +472,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // 清除自動進入下一位的計時器
+  if (autoProgressTimeout.value) {
+    clearTimeout(autoProgressTimeout.value)
+    autoProgressTimeout.value = null
+  }
   // 不要自動離開房間，讓使用者可以重新整理
 })
 
@@ -527,7 +546,20 @@ function handleHostDraw() {
 
 // 下一位
 function handleNextDrawer() {
+  // 清除自動進入下一位的計時器，避免重複觸發
+  if (autoProgressTimeout.value) {
+    clearTimeout(autoProgressTimeout.value)
+    autoProgressTimeout.value = null
+  }
   nextDrawer()
+}
+
+// 打開設定彈窗
+function openSettingsModal() {
+  if (roomState.value) {
+    newMaxPlayers.value = roomState.value.maxPlayers
+  }
+  showSettingsModal.value = true
 }
 
 // 離開房間（主機需確認）
@@ -545,6 +577,39 @@ function confirmLeaveRoom() {
   showLeaveConfirmModal.value = false
   leaveRoom()
   router.push('/')
+}
+
+// 增加人數上限
+function increaseMaxPlayers() {
+  if (newMaxPlayers.value < 100) {
+    newMaxPlayers.value++
+  }
+}
+
+// 減少人數上限
+function decreaseMaxPlayers() {
+  const minPlayers = roomState.value?.players.length || 2
+  if (newMaxPlayers.value > minPlayers) {
+    newMaxPlayers.value--
+  }
+}
+
+// 儲存房間設定
+function saveRoomSettings() {
+  if (!roomState.value) return
+  
+  const minPlayers = roomState.value.players.length
+  if (newMaxPlayers.value < minPlayers) {
+    displayError('人數上限不能小於目前人數')
+    return
+  }
+  
+  send({
+    type: 'update_max_players',
+    payload: { maxPlayers: newMaxPlayers.value }
+  })
+  
+  showSettingsModal.value = false
 }
 
 // 播放抽獎動畫
@@ -571,6 +636,14 @@ function playDrawAnimation(result: any) {
       isDrawing.value = false
       showResult.value = true
       hasDrawnCurrent.value = true
+      
+      // Auto-progress to next drawer after a delay (only if host)
+      if (isHost() && roomState.value && roomState.value.currentIndex < roomState.value.players.length - 1) {
+        autoProgressTimeout.value = window.setTimeout(() => {
+          autoProgressTimeout.value = null
+          handleNextDrawer()
+        }, 2000) // 2 second delay to show the result
+      }
     }
   }, 80)
 }
@@ -1062,6 +1135,57 @@ function celebrate() {
   gap: 10px;
   justify-content: center;
   margin-top: 20px;
+}
+
+/* 人數上限設定 */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.max-players-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.max-players-input .btn-sm {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+}
+
+.max-players-input .btn-sm:hover:not(:disabled) {
+  background: rgba(255,255,255,0.3);
+}
+
+.max-players-input .btn-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.max-players-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  min-width: 50px;
+  text-align: center;
+}
+
+.warning-text {
+  color: #ffc107;
+  font-size: 0.85rem;
+  margin-top: 10px;
 }
 
 @media (max-width: 768px) {

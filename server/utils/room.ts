@@ -303,6 +303,24 @@ export function restartGame(roomId: string): Room | null {
   return room
 }
 
+// 更新房間人數上限
+export function updateRoomMaxPlayers(roomId: string, hostId: string, newMaxPlayers: number): Room | null {
+  const room = rooms.get(roomId)
+  if (!room) return null
+  
+  // 只有主機可以更新
+  if (room.hostId !== hostId) return null
+  
+  // 確保新上限不小於當前人數
+  if (newMaxPlayers < room.players.length) return null
+  
+  // 確保新上限在有效範圍內 (2-100)
+  if (newMaxPlayers < 2 || newMaxPlayers > 100) return null
+  
+  room.maxPlayers = newMaxPlayers
+  return room
+}
+
 // 清理空房間（可定時執行）
 export function cleanupEmptyRooms() {
   for (const [id, room] of rooms) {
