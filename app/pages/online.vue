@@ -398,6 +398,7 @@ const errorMessage = ref('')
 
 // 抽獎動畫狀態
 const isDrawing = ref(false)
+const autoProgressTimeout = ref<number | null>(null)
 const showResult = ref(false)
 const drawBoxContent = ref('🎁')
 const resultGiftOwner = ref('')
@@ -471,6 +472,11 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // 清除自動進入下一位的計時器
+  if (autoProgressTimeout.value) {
+    clearTimeout(autoProgressTimeout.value)
+    autoProgressTimeout.value = null
+  }
   // 不要自動離開房間，讓使用者可以重新整理
 })
 
@@ -540,6 +546,11 @@ function handleHostDraw() {
 
 // 下一位
 function handleNextDrawer() {
+  // 清除自動進入下一位的計時器，避免重複觸發
+  if (autoProgressTimeout.value) {
+    clearTimeout(autoProgressTimeout.value)
+    autoProgressTimeout.value = null
+  }
   nextDrawer()
 }
 
@@ -628,7 +639,8 @@ function playDrawAnimation(result: any) {
       
       // Auto-progress to next drawer after a delay (only if host)
       if (isHost() && roomState.value && roomState.value.currentIndex < roomState.value.players.length - 1) {
-        setTimeout(() => {
+        autoProgressTimeout.value = window.setTimeout(() => {
+          autoProgressTimeout.value = null
           handleNextDrawer()
         }, 2000) // 2 second delay to show the result
       }
