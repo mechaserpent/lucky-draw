@@ -139,7 +139,7 @@
     <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
       <div class="modal-content modal-lg">
         <h3>⚙️ 主題設定</h3>
-        <SettingsPanel @close="showSettingsModal = false" @saved="onSettingsSaved" />
+        <SettingsPanel @close="showSettingsModal = false" @saved="onSettingsSaved" @needsRefresh="onNeedsRefresh" />
       </div>
     </div>
 
@@ -147,6 +147,13 @@
     <Transition name="toast">
       <div v-if="showError" class="toast-error">
         ❌ {{ errorMessage }}
+      </div>
+    </Transition>
+
+    <!-- 成功/提示 Toast -->
+    <Transition name="toast">
+      <div v-if="showInfoToast" class="toast-info">
+        {{ infoMessage }}
       </div>
     </Transition>
 
@@ -179,12 +186,24 @@ const errorMessage = ref('')
 const showError = ref(false)
 const isCheckingRoom = ref(false)
 
+// 資訊提示
+const infoMessage = ref('')
+const showInfoToast = ref(false)
+
 function showErrorToast(msg: string) {
   errorMessage.value = msg
   showError.value = true
   setTimeout(() => {
     showError.value = false
   }, 3000)
+}
+
+function showInfo(msg: string) {
+  infoMessage.value = msg
+  showInfoToast.value = true
+  setTimeout(() => {
+    showInfoToast.value = false
+  }, 5000)
 }
 
 onMounted(async () => {
@@ -222,6 +241,11 @@ onMounted(async () => {
 // 設定儲存回調
 function onSettingsSaved() {
   // 可以在這裡添加提示訊息
+}
+
+// 主題變更需要重新整理頁面
+function onNeedsRefresh() {
+  showInfo('💡 部分效果需要重新整理頁面才能生效，請按 F5 或重新整理')
 }
 
 // 單機模式
@@ -344,6 +368,20 @@ function joinRoom() {
   left: 50%;
   transform: translateX(-50%);
   background: #dc3545;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* Toast 資訊提示樣式 */
+.toast-info {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #17a2b8;
   color: #fff;
   padding: 12px 24px;
   border-radius: 8px;
