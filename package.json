@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "name": "lucky-draw",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev --host 0.0.0.0 --port 8000",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "v-major": "npm version major",
+    "v-minor": "npm version minor",
+    "v-patch": "npm version patch"
+  },
+  "devDependencies": {
+    "nuxt": "^4.2.2"
+  }
+}
