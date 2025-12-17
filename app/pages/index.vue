@@ -170,8 +170,10 @@
         />
         
         <div class="modal-buttons" style="margin-top: 20px;">
-          <button class="btn btn-secondary" @click="showCreateRoomModal = false">取消</button>
-          <button class="btn btn-primary" @click="createRoom">建立房間</button>
+          <button class="btn btn-secondary" @click="showCreateRoomModal = false" :disabled="isCreatingRoom">取消</button>
+          <button class="btn btn-primary" @click="createRoom" :disabled="isCreatingRoom">
+            {{ isCreatingRoom ? '建立中...' : '建立房間' }}
+          </button>
         </div>
       </div>
     </div>
@@ -204,9 +206,9 @@
         </div>
         
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showJoinRoomModal = false; joinAsSpectator = false">取消</button>
-          <button class="btn btn-primary" @click="joinRoom">
-            {{ joinAsSpectator ? '👁️ 開始觀看' : '加入房間' }}
+          <button class="btn btn-secondary" @click="showJoinRoomModal = false; joinAsSpectator = false" :disabled="isJoiningRoom">取消</button>
+          <button class="btn btn-primary" @click="joinRoom" :disabled="isJoiningRoom">
+            {{ isJoiningRoom ? '加入中...' : (joinAsSpectator ? '👁️ 開始觀看' : '加入房間') }}
           </button>
         </div>
       </div>
@@ -296,6 +298,10 @@ const isCheckingRoom = ref(false)
 const infoMessage = ref('')
 const showInfoToast = ref(false)
 
+// 防重複點擊
+const isCreatingRoom = ref(false)
+const isJoiningRoom = ref(false)
+
 function showErrorToast(msg: string) {
   errorMessage.value = msg
   showError.value = true
@@ -309,7 +315,7 @@ function showInfo(msg: string) {
   showInfoToast.value = true
   setTimeout(() => {
     showInfoToast.value = false
-  }, 5000)
+  }, 10000)
 }
 
 onMounted(async () => {
@@ -382,6 +388,8 @@ function startSoloMode() {
 
 // 建立房間
 function createRoom() {
+  if (isCreatingRoom.value) return // 防止重複點擊
+  
   const { fixedConfig } = dynamicConfig
   if (!hostName.value.trim()) {
     alert('請輸入你的名字')
@@ -392,6 +400,7 @@ function createRoom() {
     return
   }
   
+  isCreatingRoom.value = true
   connect()
   
   // 等待連接後建立房間
@@ -403,13 +412,24 @@ function createRoom() {
   on('roomUpdated', () => {
     if (roomState.value) {
       showCreateRoomModal.value = false
+      isCreatingRoom.value = false
       router.push('/online')
     }
   })
+  
+  // 超時處理
+  setTimeout(() => {
+    if (isCreatingRoom.value) {
+      isCreatingRoom.value = false
+      showErrorToast('建立房間逾時，請重試')
+    }
+  }, 5000)
 }
 
 // 加入房間
 function joinRoom() {
+  if (isJoiningRoom.value) return // 防止重複點擊
+  
   if (!joinRoomId.value.trim()) {
     alert('請輸入房間代碼')
     return
@@ -419,6 +439,7 @@ function joinRoom() {
     return
   }
   
+  isJoiningRoom.value = true
   connect()
   
   setTimeout(() => {
@@ -429,13 +450,23 @@ function joinRoom() {
     if (roomState.value) {
       showJoinRoomModal.value = false
       joinAsSpectator.value = false // 重置
+      isJoiningRoom.value = false
       router.push('/online')
     }
   })
   
   on('error', (msg: string) => {
+    isJoiningRoom.value = false
     showErrorToast(msg)
   })
+  
+  // 超時處理
+  setTimeout(() => {
+    if (isJoiningRoom.value) {
+      isJoiningRoom.value = false
+      showErrorToast('加入房間逾時，請重試')
+    }
+  }, 5000)
 }
 </script>
 

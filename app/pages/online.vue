@@ -134,7 +134,7 @@
           </div>
           
           <!-- 進階選項入口 -->
-          <div class="advanced-toggle" @click="showAdvancedOptions = true">
+          <div class="advanced-toggle" @click="showAdvancedSettings = true">
             🔧 進階選項
           </div>
           
@@ -482,28 +482,6 @@
       </div>
     </div>
 
-    <!-- 進階選項密碼驗證 -->
-    <div class="modal-overlay" v-if="showAdvancedOptions" @click.self="showAdvancedOptions = false">
-      <div class="modal-content">
-        <h3>🔐 進階選項驗證</h3>
-        <p style="opacity: 0.7; font-size: 0.9rem; margin-bottom: 15px;">
-          請輸入密碼以開啟進階設定
-        </p>
-        <input 
-          type="password" 
-          class="input" 
-          v-model="advancedPassword"
-          placeholder="輸入密碼..."
-          @keypress.enter="confirmAdvanced"
-          autocomplete="new-password"
-        >
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showAdvancedOptions = false">取消</button>
-          <button class="btn btn-primary" @click="confirmAdvanced">確認</button>
-        </div>
-      </div>
-    </div>
-
     <!-- 進階設定區 -->
     <div class="modal-overlay" v-if="showAdvancedSettings" @click.self="showAdvancedSettings = false">
       <div class="modal-content">
@@ -587,7 +565,6 @@ const showRenameModal = ref(false)
 const newPlayerName = ref('')
 const showSettingsModal = ref(false)
 const showRoomDisbandModal = ref(false)
-const showAdvancedOptions = ref(false)
 const showAdvancedSettings = ref(false)
 const showShareModal = ref(false)
 
@@ -601,7 +578,6 @@ const firstDrawerId = ref<number | undefined>(undefined)
 const allowSpectators = ref(true)
 
 // 進階設定
-const advancedPassword = ref('')
 const fixedDrawerId = ref<number | undefined>(undefined)
 const fixedGiftId = ref<number | undefined>(undefined)
 const fixedPairs = ref<{drawerId: number, giftOwnerId: number}[]>([])
@@ -891,20 +867,6 @@ function saveRoomSettings() {
   showSettingsModal.value = false
 }
 
-// 確認進階選項密碼
-function confirmAdvanced() {
-  // 簡單的密碼驗證 (可以從 localStorage 讀取)
-  const storedPassword = localStorage.getItem('adminPassword')
-  if (storedPassword && advancedPassword.value === storedPassword) {
-    showAdvancedOptions.value = false
-    showAdvancedSettings.value = true
-    advancedPassword.value = ''
-  } else {
-    displayError('密碼錯誤！')
-    advancedPassword.value = ''
-  }
-}
-
 // 新增指定配對
 function handleAddFixedPair() {
   if (fixedDrawerId.value === undefined || fixedGiftId.value === undefined) {
@@ -1022,22 +984,13 @@ async function handleShareText() {
   
   const text = lines.join('\n')
   
-  // 嘗試使用 Web Share API
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: '交換禮物抽籤結果',
-        text: text
-      })
-      showShareModal.value = false
-    } catch (e) {
-      // 使用者取消分享，不需處理
-    }
-  } else {
-    // 降級為複製到剪貼簿
+  // 直接複製到剪貼簿
+  try {
     await navigator.clipboard.writeText(text)
     displayError('✅ 結果已複製到剪貼簿！')
     showShareModal.value = false
+  } catch (e) {
+    displayError('❌ 複製失敗，請手動複製')
   }
 }
 

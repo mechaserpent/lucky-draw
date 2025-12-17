@@ -28,13 +28,34 @@ export function useShareImage() {
         return
       }
       
+      // 如果有指定玩家，找到該玩家的結果並截取前後各3筆
+      let displayResults = results
+      let highlightIndex = -1
+      
+      if (highlightPlayer) {
+        const playerIndex = results.findIndex(r => 
+          r.drawerName === highlightPlayer || r.giftOwnerName === highlightPlayer
+        )
+        
+        if (playerIndex !== -1) {
+          highlightIndex = playerIndex
+          // 截取該玩家前後各3筆（共7筆），如果不足則顯示全部
+          const start = Math.max(0, playerIndex - 3)
+          const end = Math.min(results.length, playerIndex + 4)
+          displayResults = results.slice(start, end)
+          
+          // 調整高亮索引
+          highlightIndex = playerIndex - start
+        }
+      }
+      
       // 設定畫布大小（適合社交媒體分享）
       const width = 1080
       const padding = 60
-      const lineHeight = 50
-      const titleHeight = 120
-      const footerHeight = 100
-      const contentHeight = results.length * lineHeight + 40
+      const lineHeight = 60
+      const titleHeight = 180
+      const footerHeight = 120
+      const contentHeight = displayResults.length * lineHeight + 60
       const height = titleHeight + contentHeight + footerHeight + padding * 2
       
       canvas.width = width
@@ -49,50 +70,73 @@ export function useShareImage() {
       
       // 標題
       ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 56px Arial, "Microsoft YaHei", sans-serif'
+      ctx.font = 'bold 64px Arial, "Microsoft YaHei", sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText('🎁 交換禮物抽籤結果', width / 2, padding + 70)
       
-      // 模式標籤
-      const modeText = mode === 'solo' ? '🖥️ 主持模式' : '🌐 連線模式'
-      ctx.font = '32px Arial, "Microsoft YaHei", sans-serif'
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-      ctx.fillText(modeText, width / 2, padding + 110)
+      // 副標題 - 如果有高亮玩家，顯示個人化訊息
+      ctx.font = 'bold 36px Arial, "Microsoft YaHei", sans-serif'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+      if (highlightPlayer) {
+        const funnyTexts = [
+          '✨ 我的命運已經決定啦！',
+          '🎯 看看我抽到了什麼！',
+          '🎪 我的抽獎結果出爐囉！',
+          '🌟 天選之人就是我！',
+          '🎲 幸運女神眷顧的結果'
+        ]
+        const randomText = funnyTexts[Math.floor(Math.random() * funnyTexts.length)]
+        ctx.fillText(randomText, width / 2, padding + 115)
+      } else {
+        const modeText = mode === 'solo' ? '🖥️ 主持模式' : '🌐 連線模式'
+        ctx.fillText(modeText, width / 2, padding + 115)
+      }
       
       // 結果列表背景
       const listY = titleHeight + padding
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
       ctx.fillRect(padding, listY, width - padding * 2, contentHeight)
       
       // 繪製結果
       ctx.textAlign = 'left'
-      results.forEach((r, index) => {
-        const y = listY + 40 + index * lineHeight
-        const isHighlight = highlightPlayer && (r.drawerName === highlightPlayer || r.giftOwnerName === highlightPlayer)
+      displayResults.forEach((r, index) => {
+        const y = listY + 50 + index * lineHeight
+        const isHighlight = highlightIndex === index
         
         // 高亮背景
         if (isHighlight) {
-          ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'
-          ctx.fillRect(padding + 10, y - 35, width - padding * 2 - 20, lineHeight - 10)
+          ctx.fillStyle = 'rgba(255, 215, 0, 0.4)'
+          ctx.fillRect(padding + 20, y - 40, width - padding * 2 - 40, lineHeight - 10)
+          
+          // 高亮邊框
+          ctx.strokeStyle = '#ffd700'
+          ctx.lineWidth = 3
+          ctx.strokeRect(padding + 20, y - 40, width - padding * 2 - 40, lineHeight - 10)
+          
+          // 加上特效文字
+          ctx.fillStyle = '#ffd700'
+          ctx.font = 'bold 28px Arial'
+          ctx.fillText('👉', padding + 35, y)
         }
         
         // 序號
         ctx.fillStyle = isHighlight ? '#ffd700' : '#ffffff'
-        ctx.font = 'bold 32px Arial'
-        ctx.fillText(`${r.order}.`, padding + 30, y)
+        ctx.font = isHighlight ? 'bold 38px Arial' : 'bold 36px Arial'
+        ctx.fillText(`${r.order}.`, padding + (isHighlight ? 80 : 50), y)
         
-        // 抽獎者和結果
-        ctx.font = '32px Arial, "Microsoft YaHei", sans-serif'
-        const text = `${r.drawerName} ➡️ ${r.giftOwnerName} 的禮物`
-        ctx.fillText(text, padding + 100, y)
+        // 抽獎者和結果 - 使用更有趣的表達方式
+        ctx.font = isHighlight ? 'bold 36px Arial, "Microsoft YaHei", sans-serif' : '36px Arial, "Microsoft YaHei", sans-serif'
+        const arrow = isHighlight ? '🎁' : '➡️'
+        const text = `${r.drawerName} ${arrow} ${r.giftOwnerName} 的禮物`
+        ctx.fillText(text, padding + 160, y)
       })
       
       // 底部資訊
       const footerY = listY + contentHeight + 50
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-      ctx.font = '28px Arial, "Microsoft YaHei", sans-serif'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+      ctx.font = 'bold 32px Arial, "Microsoft YaHei", sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText(`🎲 Seed: ${seed}`, width / 2, footerY)
+      ctx.fillText(`🎲 種子碼: ${seed}`, width / 2, footerY)
       
       // 生成時間
       const now = new Date()
@@ -103,8 +147,9 @@ export function useShareImage() {
         hour: '2-digit',
         minute: '2-digit'
       })
-      ctx.font = '24px Arial, "Microsoft YaHei", sans-serif'
-      ctx.fillText(timeText, width / 2, footerY + 40)
+      ctx.font = '28px Arial, "Microsoft YaHei", sans-serif'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+      ctx.fillText(timeText, width / 2, footerY + 45)
       
       // 轉換為 Blob
       canvas.toBlob((blob) => {

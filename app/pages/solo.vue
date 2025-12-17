@@ -277,6 +277,7 @@
           autocomplete="new-password"
           data-lpignore="true"
           data-form-type="other"
+          autofocus
         >
         <div class="modal-buttons">
           <button class="btn btn-secondary" @click="showAdvancedModal = false">取消</button>
@@ -766,22 +767,13 @@ async function handleShareText() {
   
   const text = lines.join('\n')
   
-  // 嘗試使用 Web Share API
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: '交換禮物抽籤結果',
-        text: text
-      })
-      showShareModal.value = false
-    } catch (e) {
-      // 使用者取消分享，不需處理
-    }
-  } else {
-    // 降級為複製到剪貼簿
+  // 直接複製到剪貼簿
+  try {
     await navigator.clipboard.writeText(text)
-    alert('結果已複製到剪貼簿！')
+    alert('✅ 結果已複製到剪貼簿！')
     showShareModal.value = false
+  } catch (e) {
+    alert('❌ 複製失敗，請手動複製')
   }
 }
 

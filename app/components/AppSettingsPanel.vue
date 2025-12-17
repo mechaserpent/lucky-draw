@@ -252,7 +252,7 @@ const newAdminPassword = ref('')
 const confirmAdminPassword = ref('')
 
 // 應用資訊
-const appVersion = '0.3.0'
+const appVersion = '0.3.1'
 const buildNumber = computed(() => {
   const date = new Date()
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
@@ -318,7 +318,7 @@ function resetSettings() {
   confirmMessage.value = '這將重置所有主題設定為預設值，確定要繼續嗎？'
   pendingAction = () => {
     localStorage.removeItem('dynamic-config')
-    localStorage.removeItem('adminPassword')
+    localStorage.removeItem('christmas_draw_admin_pwd')
     alert('設定已恢復為默認值，頁面將重新載入')
     window.location.reload()
   }
@@ -335,7 +335,7 @@ function resetAdminPassword() {
     return
   }
   
-  localStorage.setItem('adminPassword', newAdminPassword.value)
+  localStorage.setItem('christmas_draw_admin_pwd', newAdminPassword.value)
   alert('管理員密碼已重設')
   showResetPasswordModal.value = false
   newAdminPassword.value = ''
