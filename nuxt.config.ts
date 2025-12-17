@@ -49,7 +49,26 @@ export default defineNuxtConfig({
     }
   },
 
-  modules: [],
+  modules: [
+    '@nuxtjs/i18n'
+  ],
+
+  i18n: {
+    locales: [
+      { code: 'zh-TW', name: '繁體中文', file: 'zh-TW.json' },
+      { code: 'en', name: 'English', file: 'en.json' }
+    ],
+    lazy: true,
+    langDir: 'locales/',
+    defaultLocale: 'zh-TW',
+    strategy: 'no_prefix',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_locale',
+      alwaysRedirect: false,
+      fallbackLocale: 'zh-TW'
+    }
+  },
 
   // 啟用 Nitro WebSocket
   nitro: {

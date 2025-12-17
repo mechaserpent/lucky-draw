@@ -238,7 +238,8 @@ export async function saveRoomToDb(room: Room): Promise<void> {
 export async function createRoom(
   hostId: string, 
   hostName: string, 
-  settings: Partial<RoomSettings> = {}
+  settings: Partial<RoomSettings> = {},
+  deviceId?: string
 ): Promise<Room> {
   let roomId: string
   do {
@@ -248,6 +249,7 @@ export async function createRoom(
   const now = new Date()
   const seed = Date.now()
   const reconnectToken = generateReconnectToken()
+  const tokenExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000) // 2小時後過期
 
   const roomSettings: RoomSettings = {
     maxPlayers: settings.maxPlayers ?? 20,
@@ -285,7 +287,9 @@ export async function createRoom(
     isReady: true,
     isConnected: true,
     isVirtual: false,
+    deviceId: deviceId || null,
     reconnectToken,
+    tokenExpiresAt,
     joinedAt: now
   })
 
@@ -319,7 +323,8 @@ export async function joinRoom(
   roomId: string, 
   playerId: string, 
   playerName: string,
-  asSpectator: boolean = false
+  asSpectator: boolean = false,
+  deviceId?: string
 ): Promise<Room | null> {
   const room = await loadRoomFromDb(roomId)
   if (!room) return null
@@ -344,10 +349,9 @@ export async function joinRoom(
     if (!room.settings.allowSpectators) return null
     role = 'spectator'
   } else {
-    // 遊戲進行中只能加入為觀眾
+    // 遊戲進行中不允許加入（即使作為觀眾）
     if (room.gameState !== 'waiting') {
-      if (!room.settings.allowSpectators) return null
-      role = 'spectator'
+      return null // 返回 null 表示無法加入
     }
     // 玩家已滿，嘗試作為觀眾加入
     if (room.players.length >= room.settings.maxPlayers) {
@@ -361,6 +365,7 @@ export async function joinRoom(
     : -(room.spectators.length + 1) // 觀眾用負數 ID
   
   const reconnectToken = generateReconnectToken()
+  const tokenExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000) // 2小時後過期
 
   await db.insert(schema.players).values({
     roomId,
@@ -372,7 +377,9 @@ export async function joinRoom(
     isReady: false,
     isConnected: true,
     isVirtual: false,
+    deviceId: deviceId || null,
     reconnectToken,
+    tokenExpiresAt,
     joinedAt: new Date()
   })
 

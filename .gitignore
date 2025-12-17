@@ -42,3 +42,6 @@ yarn.lock
 # OS files
 Thumbs.db
 ehthumbs.db
+
+# Documentation
+docs/*

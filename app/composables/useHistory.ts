@@ -3,12 +3,14 @@
  * 用於保存和讀取先前的抽籤結果
  */
 import { ref, readonly } from 'vue'
+import { generateGameId } from '~/utils/gameId'
 
 const HISTORY_KEY = 'lucky-draw-history'
 const MAX_HISTORY = 20
 
 export interface HistoryRecord {
   id: string
+  gameId?: string // 遊戲唯一識別碼（新增）
   timestamp: number
   mode: 'solo' | 'online'
   seed: number
@@ -18,6 +20,7 @@ export interface HistoryRecord {
     drawerName: string
     giftOwnerName: string
   }[]
+  roomId?: string // 連線模式的房間代碼（可選）
 }
 
 export function useHistory() {
@@ -54,6 +57,7 @@ export function useHistory() {
     const newRecord: HistoryRecord = {
       ...record,
       id: Date.now().toString(36) + Math.random().toString(36).substr(2, 9),
+      gameId: record.gameId || generateGameId(),
       timestamp: Date.now()
     }
     

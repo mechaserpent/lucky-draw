@@ -1,0 +1,127 @@
+{
+  "common": {
+    "appName": "交換禮物抽籤",
+    "loading": "載入中...",
+    "close": "關閉",
+    "cancel": "取消",
+    "confirm": "確認",
+    "save": "儲存",
+    "delete": "刪除",
+    "edit": "編輯",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "settings": "設定",
+    "language": "語言"
+  },
+  "home": {
+    "title": "選擇遊戲模式",
+    "soloMode": "主持模式",
+    "soloDesc": "由主持人操作所有抽獎流程，適合投影到大螢幕",
+    "onlineMode": "連線模式",
+    "onlineDesc": "每個人用自己的裝置加入房間，輪到時自己抽獎",
+    "privacyInfo": {
+      "solo": "主持模式：資料僅存在本地瀏覽器",
+      "online": "連線模式：房間資料暫存於伺服器，關閉後 30 分鐘自動清除"
+    },
+    "history": {
+      "title": "先前紀錄",
+      "clearAll": "清除全部",
+      "showMore": "顯示更多",
+      "collapse": "收起",
+      "confirmClear": "確認清除所有歷史紀錄嗎？此操作無法復原。"
+    }
+  },
+  "room": {
+    "create": "建立新房間",
+    "join": "加入房間",
+    "yourName": "你的名字",
+    "enterName": "輸入你的名字...",
+    "roomCode": "房間代碼",
+    "enterCode": "輸入房間代碼...",
+    "maxPlayers": "房間人數上限",
+    "playerCount": "參與人數",
+    "creating": "建立中...",
+    "joining": "加入中...",
+    "spectatorMode": "觀眾模式",
+    "spectatorNotice": "你將以觀眾身份加入，只能觀看不能參與抽獎",
+    "startViewing": "開始觀看"
+  },
+  "game": {
+    "waiting": "等待中",
+    "playing": "進行中",
+    "complete": "已完成",
+    "startGame": "開始遊戲",
+    "draw": "抽獎",
+    "nextDrawer": "下一位",
+    "restart": "重新開始",
+    "leave": "離開房間",
+    "disband": "解散房間",
+    "ready": "準備",
+    "notReady": "取消準備",
+    "host": "主持人",
+    "spectator": "觀眾",
+    "youAreHost": "你是主持人",
+    "result": "結果",
+    "drawer": "抽獎者",
+    "giftOwner": "禮物擁有者",
+    "order": "順序"
+  },
+  "share": {
+    "title": "分享結果",
+    "text": "文字版",
+    "image": "圖片版",
+    "download": "下載圖片",
+    "copyLink": "複製連結",
+    "copied": "已複製到剪貼簿！",
+    "shareTo": "分享到...",
+    "socialPlatforms": {
+      "instagram": "Instagram",
+      "threads": "Threads",
+      "facebook": "Facebook",
+      "twitter": "X (Twitter)",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "line": "LINE"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "basic": "基本設定",
+    "advanced": "進階設定",
+    "advancedPassword": "進階選項需要密碼",
+    "enterPassword": "輸入密碼...",
+    "drawMode": "抽獎模式",
+    "chainMode": "連鎖式",
+    "randomMode": "隨機順序",
+    "firstDrawer": "第一位抽獎者",
+    "randomFirst": "隨機決定",
+    "manualFirst": "手動指定",
+    "hostFirst": "主機先抽",
+    "allowSpectators": "允許觀眾",
+    "theme": "主題設定",
+    "siteName": "網站名稱",
+    "subtitle": "副標題",
+    "iconLeft": "左側圖示",
+    "iconRight": "右側圖示"
+  },
+  "errors": {
+    "roomNotFound": "房間不存在或已解散",
+    "roomFull": "房間人數已滿",
+    "gameStarted": "遊戲已經開始，無法加入",
+    "connectionFailed": "連線失敗",
+    "timeout": "操作逾時，請重試",
+    "invalidInput": "輸入無效",
+    "unknownError": "發生未知錯誤"
+  },
+  "notifications": {
+    "playerJoined": "{name} 加入了房間",
+    "playerLeft": "{name} 離開了房間",
+    "playerDisconnected": "{name} 已斷線",
+    "playerReconnected": "{name} 重新連線",
+    "gameStarted": "遊戲開始！",
+    "gameComplete": "遊戲結束！",
+    "hostTransferred": "主持人已轉移給 {name}",
+    "roomDisbanded": "房間已解散"
+  }
+}

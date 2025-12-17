@@ -61,6 +61,7 @@ export function initDatabase() {
       room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
       player_id TEXT NOT NULL,
       session_id TEXT,
+      device_id TEXT,
       name TEXT NOT NULL,
       participant_id INTEGER NOT NULL,
       role TEXT NOT NULL DEFAULT 'player',
@@ -70,9 +71,23 @@ export function initDatabase() {
       is_virtual INTEGER NOT NULL DEFAULT 0,
       disconnected_at INTEGER,
       reconnect_token TEXT,
+      token_expires_at INTEGER,
       joined_at INTEGER NOT NULL
     )
   `)
+  
+  // 遷移：為現有表添加新欄位（如果不存在）
+  try {
+    sqlite.exec(`ALTER TABLE players ADD COLUMN device_id TEXT`)
+  } catch (e) {
+    // 欄位已存在，忽略錯誤
+  }
+  
+  try {
+    sqlite.exec(`ALTER TABLE players ADD COLUMN token_expires_at INTEGER`)
+  } catch (e) {
+    // 欄位已存在，忽略錯誤
+  }
 
   // 建立 draw_sequences 表
   sqlite.exec(`

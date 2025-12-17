@@ -54,6 +54,7 @@ export const players = sqliteTable('players', {
   // 玩家識別
   playerId: text('player_id').notNull(), // WebSocket 分配的玩家 ID（如 "P12345678"）
   sessionId: text('session_id'), // 當前的 WebSocket session ID（用於重連識別）
+  deviceId: text('device_id'), // 裝置唯一識別碼（長期識別）
   
   // 玩家資料
   name: text('name').notNull(),
@@ -66,9 +67,10 @@ export const players = sqliteTable('players', {
   isConnected: integer('is_connected', { mode: 'boolean' }).notNull().default(true),
   isVirtual: integer('is_virtual', { mode: 'boolean' }).notNull().default(false), // 主機協助加入的虛擬玩家
   
-  // 斷線重連
+  // 斷線重連（混合方案）
   disconnectedAt: integer('disconnected_at', { mode: 'timestamp' }),
-  reconnectToken: text('reconnect_token'), // 用於驗證重連身份
+  reconnectToken: text('reconnect_token'), // 短期驗證 token（防止冒充）
+  tokenExpiresAt: integer('token_expires_at', { mode: 'timestamp' }), // Token 過期時間（2小時）
   
   // 時間戳
   joinedAt: integer('joined_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),

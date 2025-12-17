@@ -172,14 +172,20 @@ export function useWebSocket() {
         break
         
       case 'reconnect_token':
-        // 儲存重連資訊
-        saveReconnectInfo({
-          roomId: msg.payload.roomId,
-          odId: msg.payload.odId,
-          reconnectToken: msg.payload.reconnectToken,
-          playerName: roomState.value?.players.find(p => p.id === playerId.value)?.name || '',
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 小時後過期
-        })
+        // 儲存重連資訊（使用 useDeviceId）
+        if (msg.payload.roomId && msg.payload.reconnectToken) {
+          const { saveReconnectInfo: saveDeviceReconnectInfo } = useDeviceId()
+          const player = roomState.value?.players.find(p => p.id === msg.payload.odId) ||
+                        roomState.value?.spectators.find(s => s.id === msg.payload.odId)
+          
+          saveDeviceReconnectInfo({
+            roomId: msg.payload.roomId,
+            playerId: msg.payload.odId,
+            playerName: player?.name || '',
+            reconnectToken: msg.payload.reconnectToken,
+            expiresAt: msg.payload.expiresAt || (Date.now() + 2 * 60 * 60 * 1000)
+          })
+        }
         break
         
       case 'room_created':
@@ -274,19 +280,25 @@ export function useWebSocket() {
     }
   }
   
-  // ==================== 房間操作 ====================
+  // ==================== 房間管理 ====================
   
-  function createRoom(hostName: string, settings?: Partial<RoomSettings>) {
+  function createRoom(hostName: string, settings: Partial<RoomSettings> = {}) {
+    const { getDeviceId } = useDeviceId()
+    const deviceId = getDeviceId()
+    
     send({
       type: 'create_room',
-      payload: { hostName, settings }
+      payload: { hostName, settings, deviceId }
     })
   }
   
   function joinRoom(roomId: string, playerName: string, asSpectator: boolean = false) {
+    const { getDeviceId } = useDeviceId()
+    const deviceId = getDeviceId()
+    
     send({
       type: 'join_room',
-      payload: { roomId, playerName, asSpectator }
+      payload: { roomId, playerName, asSpectator, deviceId }
     })
   }
   

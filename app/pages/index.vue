@@ -5,6 +5,11 @@
       ⚙️
     </button>
 
+    <!-- 語言切換器（固定在左上角） -->
+    <div class="language-switcher-container">
+      <LanguageSwitcher />
+    </div>
+
     <header>
       <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{ dynamicConfig.settings.value.siteIconRight }}</h1>
       <p>{{ dynamicConfig.settings.value.siteSubtitle }}</p>
@@ -157,6 +162,7 @@
           <ClearableInput 
             v-model="hostName" 
             placeholder="輸入你的名字..."
+            ref="createRoomNameInput"
           />
         </div>
         
@@ -277,6 +283,9 @@ const showJoinRoomModal = ref(false)
 const showSettingsModal = ref(false)
 const showClearHistoryConfirm = ref(false)
 
+// 輸入框引用
+const createRoomNameInput = ref<any>(null)
+
 // 歷史紀錄控制
 const showAllHistory = ref(false)
 const expandedHistory = ref<string | null>(null)
@@ -318,6 +327,16 @@ function showInfo(msg: string) {
   }, 10000)
 }
 
+// 監視彈窗開啟，自動聚焦輸入框
+watch(showCreateRoomModal, (newVal) => {
+  if (newVal) {
+    nextTick(() => {
+      const input = createRoomNameInput.value?.$el?.querySelector('input')
+      if (input) input.focus()
+    })
+  }
+})
+
 onMounted(async () => {
   loadState()
   
@@ -334,6 +353,12 @@ onMounted(async () => {
       const response = await $fetch(`/api/room/${code}`)
       
       if (response.exists) {
+        // 檢查是否可以加入
+        if (!response.canJoin) {
+          showErrorToast(`${response.reason || '無法加入此房間'}`)
+          return
+        }
+        
         joinRoomId.value = code
         joinAsSpectator.value = isSpectator
         showJoinRoomModal.value = true
@@ -401,6 +426,37 @@ function createRoom() {
   }
   
   isCreatingRoom.value = true
+  
+  // 清理舊的事件監聽器
+  off('roomUpdated')
+  off('error')
+  off('room_created')
+  
+  // 註冊新的事件監聽器
+  const handleRoomCreated = () => {
+    if (roomState.value) {
+      showCreateRoomModal.value = false
+      isCreatingRoom.value = false
+      off('roomUpdated', handleRoomCreated)
+      off('error', handleError)
+      off('room_created', handleRoomCreated)
+      router.push('/online')
+    }
+  }
+  
+  const handleError = (msg: string) => {
+    isCreatingRoom.value = false
+    showErrorToast(msg)
+    off('roomUpdated', handleRoomCreated)
+    off('error', handleError)
+    off('room_created', handleRoomCreated)
+  }
+  
+  on('roomUpdated', handleRoomCreated)
+  on('room_created', handleRoomCreated)
+  on('error', handleError)
+  
+  // 連接並建立房間
   connect()
   
   // 等待連接後建立房間
@@ -408,19 +464,13 @@ function createRoom() {
     wsCreateRoom(hostName.value.trim(), { maxPlayers: maxPlayers.value })
   }, 500)
   
-  // 監聽房間建立成功
-  on('roomUpdated', () => {
-    if (roomState.value) {
-      showCreateRoomModal.value = false
-      isCreatingRoom.value = false
-      router.push('/online')
-    }
-  })
-  
   // 超時處理
   setTimeout(() => {
     if (isCreatingRoom.value) {
       isCreatingRoom.value = false
+      off('roomUpdated', handleRoomCreated)
+      off('error', handleError)
+      off('room_created', handleRoomCreated)
       showErrorToast('建立房間逾時，請重試')
     }
   }, 5000)
@@ -440,30 +490,51 @@ function joinRoom() {
   }
   
   isJoiningRoom.value = true
+  
+  // 清理舊的事件監聽器
+  off('roomUpdated')
+  off('error')
+  off('room_joined')
+  
+  // 註冊新的事件監聽器
+  const handleRoomJoined = () => {
+    if (roomState.value) {
+      showJoinRoomModal.value = false
+      joinAsSpectator.value = false // 重置
+      isJoiningRoom.value = false
+      off('roomUpdated', handleRoomJoined)
+      off('error', handleError)
+      off('room_joined', handleRoomJoined)
+      router.push('/online')
+    }
+  }
+  
+  const handleError = (msg: string) => {
+    isJoiningRoom.value = false
+    showErrorToast(msg)
+    off('roomUpdated', handleRoomJoined)
+    off('error', handleError)
+    off('room_joined', handleRoomJoined)
+  }
+  
+  on('roomUpdated', handleRoomJoined)
+  on('room_joined', handleRoomJoined)
+  on('error', handleError)
+  
+  // 連接並加入房間
   connect()
   
   setTimeout(() => {
     wsJoinRoom(joinRoomId.value.trim().toUpperCase(), playerName.value.trim(), joinAsSpectator.value)
   }, 500)
   
-  on('roomUpdated', () => {
-    if (roomState.value) {
-      showJoinRoomModal.value = false
-      joinAsSpectator.value = false // 重置
-      isJoiningRoom.value = false
-      router.push('/online')
-    }
-  })
-  
-  on('error', (msg: string) => {
-    isJoiningRoom.value = false
-    showErrorToast(msg)
-  })
-  
   // 超時處理
   setTimeout(() => {
     if (isJoiningRoom.value) {
       isJoiningRoom.value = false
+      off('roomUpdated', handleRoomJoined)
+      off('error', handleError)
+      off('room_joined', handleRoomJoined)
       showErrorToast('加入房間逾時，請重試')
     }
   }, 5000)
@@ -536,6 +607,14 @@ function joinRoom() {
 .settings-fab:hover {
   background: rgba(255,255,255,0.25);
   transform: rotate(90deg);
+}
+
+/* 語言切換器容器 */
+.language-switcher-container {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
 }
 
 /* Modal Header */

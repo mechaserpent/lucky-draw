@@ -122,7 +122,7 @@ export default defineWebSocketHandler({
         }
 
         case 'join_room': {
-          const { roomId, playerName, asSpectator } = msg.payload
+          const { roomId, playerName, asSpectator, deviceId } = msg.payload
           const upperRoomId = roomId.toUpperCase()
           
           const existingRoom = await roomService.getRoom(upperRoomId)
@@ -139,7 +139,7 @@ export default defineWebSocketHandler({
             return
           }
           
-          const room = await roomService.joinRoom(upperRoomId, odId, playerName, asSpectator)
+          const room = await roomService.joinRoom(upperRoomId, odId, playerName, asSpectator, deviceId)
           
           if (!room) {
             sendError(peer, '無法加入房間')
@@ -164,14 +164,15 @@ export default defineWebSocketHandler({
             }
           }))
           
-          // 發送重連 token
+          // 發送重連 token（帶有過期時間）
           if (reconnectToken) {
             peer.send(JSON.stringify({
               type: 'reconnect_token',
               payload: { 
                 roomId: room.id, 
                 reconnectToken,
-                odId
+                odId,
+                expiresAt: Date.now() + 2 * 60 * 60 * 1000 // 2小時
               }
             }))
           }

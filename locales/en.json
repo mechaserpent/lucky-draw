@@ -1,0 +1,127 @@
+{
+  "common": {
+    "appName": "Lucky Draw",
+    "loading": "Loading...",
+    "close": "Close",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "settings": "Settings",
+    "language": "Language"
+  },
+  "home": {
+    "title": "Choose Game Mode",
+    "soloMode": "Host Mode",
+    "soloDesc": "Host controls all drawing processes, suitable for projection on big screen",
+    "onlineMode": "Online Mode",
+    "onlineDesc": "Everyone joins with their own device and draws when it's their turn",
+    "privacyInfo": {
+      "solo": "Host Mode: Data stored locally in browser",
+      "online": "Online Mode: Room data temporarily stored on server, auto-deleted 30 minutes after closing"
+    },
+    "history": {
+      "title": "Previous Records",
+      "clearAll": "Clear All",
+      "showMore": "Show More",
+      "collapse": "Collapse",
+      "confirmClear": "Are you sure you want to clear all history? This action cannot be undone."
+    }
+  },
+  "room": {
+    "create": "Create New Room",
+    "join": "Join Room",
+    "yourName": "Your Name",
+    "enterName": "Enter your name...",
+    "roomCode": "Room Code",
+    "enterCode": "Enter room code...",
+    "maxPlayers": "Max Players",
+    "playerCount": "Player Count",
+    "creating": "Creating...",
+    "joining": "Joining...",
+    "spectatorMode": "Spectator Mode",
+    "spectatorNotice": "You will join as spectator, can only watch but not participate",
+    "startViewing": "Start Viewing"
+  },
+  "game": {
+    "waiting": "Waiting",
+    "playing": "Playing",
+    "complete": "Complete",
+    "startGame": "Start Game",
+    "draw": "Draw",
+    "nextDrawer": "Next",
+    "restart": "Restart",
+    "leave": "Leave Room",
+    "disband": "Disband Room",
+    "ready": "Ready",
+    "notReady": "Not Ready",
+    "host": "Host",
+    "spectator": "Spectator",
+    "youAreHost": "You are the host",
+    "result": "Result",
+    "drawer": "Drawer",
+    "giftOwner": "Gift Owner",
+    "order": "Order"
+  },
+  "share": {
+    "title": "Share Result",
+    "text": "Text Version",
+    "image": "Image Version",
+    "download": "Download Image",
+    "copyLink": "Copy Link",
+    "copied": "Copied to clipboard!",
+    "shareTo": "Share to...",
+    "socialPlatforms": {
+      "instagram": "Instagram",
+      "threads": "Threads",
+      "facebook": "Facebook",
+      "twitter": "X (Twitter)",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "line": "LINE"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "basic": "Basic Settings",
+    "advanced": "Advanced Settings",
+    "advancedPassword": "Password required for advanced options",
+    "enterPassword": "Enter password...",
+    "drawMode": "Draw Mode",
+    "chainMode": "Chain Mode",
+    "randomMode": "Random Order",
+    "firstDrawer": "First Drawer",
+    "randomFirst": "Random",
+    "manualFirst": "Manual",
+    "hostFirst": "Host First",
+    "allowSpectators": "Allow Spectators",
+    "theme": "Theme Settings",
+    "siteName": "Site Name",
+    "subtitle": "Subtitle",
+    "iconLeft": "Left Icon",
+    "iconRight": "Right Icon"
+  },
+  "errors": {
+    "roomNotFound": "Room not found or disbanded",
+    "roomFull": "Room is full",
+    "gameStarted": "Game has already started, cannot join",
+    "connectionFailed": "Connection failed",
+    "timeout": "Operation timeout, please retry",
+    "invalidInput": "Invalid input",
+    "unknownError": "Unknown error occurred"
+  },
+  "notifications": {
+    "playerJoined": "{name} joined the room",
+    "playerLeft": "{name} left the room",
+    "playerDisconnected": "{name} disconnected",
+    "playerReconnected": "{name} reconnected",
+    "gameStarted": "Game started!",
+    "gameComplete": "Game complete!",
+    "hostTransferred": "Host transferred to {name}",
+    "roomDisbanded": "Room disbanded"
+  }
+}
