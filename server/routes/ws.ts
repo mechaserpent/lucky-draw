@@ -90,7 +90,7 @@ export default defineWebSocketHandler({
           if (existingRoom.players.length >= existingRoom.maxPlayers) {
             peer.send(JSON.stringify({
               type: 'error',
-              payload: { message: '房間人數已滿，請聯繫房主增加人數上限' }
+              payload: { message: '房間人數已滿' }
             }))
             return
           }
