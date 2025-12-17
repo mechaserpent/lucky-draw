@@ -261,39 +261,57 @@
       </div>
     </template>
 
-    <!-- 遊戲完成 -->
+    <!-- 遊戲完成 - 全新慶祝畫面 -->
     <template v-else-if="roomState?.gameState === 'complete'">
-      <div class="card" style="text-align: center;">
-        <h2>🎉 抽獎完成！</h2>
-        <p style="font-size: 1.2rem; margin: 20px 0;">所有人都已完成抽獎</p>
-      </div>
-      
-      <div class="card">
-        <h2>📋 最終結果</h2>
-        <div class="results-list">
+      <div class="celebration-container">
+        <!-- 慶祝橫幅 -->
+        <div class="celebration-banner">
+          <div class="confetti-animation">🎉</div>
+          <h1 class="celebration-title">🎊 抽獎結果揭曉！</h1>
+          <div class="confetti-animation">🎉</div>
+        </div>
+
+        <!-- 結果卡片網格 -->
+        <div class="result-cards-grid">
           <div 
             v-for="r in roomState.results" 
             :key="r.order"
-            class="result-item"
+            class="result-card"
+            :class="{ 'highlight-card': r.drawerId === playerId }"
+            :style="{ animationDelay: `${r.order * 0.1}s` }"
           >
-            <span class="order">{{ r.order }}</span>
-            <span class="drawer">{{ getPlayerName(r.drawerId) }}</span>
-            <span class="arrow">➡️</span>
-            <span class="gift">{{ getPlayerName(r.giftOwnerId) }} 的禮物</span>
+            <div class="card-badge">#{r.order}</div>
+            <div class="card-body">
+              <div class="player-section drawer-section">
+                <div class="player-avatar">👤</div>
+                <div class="player-name">{{ getPlayerName(r.drawerId) }}</div>
+                <div class="player-label">抽獎者</div>
+              </div>
+              <div class="arrow-icon">➡️</div>
+              <div class="player-section gift-section">
+                <div class="gift-icon">🎁</div>
+                <div class="player-name">{{ getPlayerName(r.giftOwnerId) }}</div>
+                <div class="player-label">禮物擁有者</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="controls">
-        <button class="btn btn-success" @click="shareResults">
-          📤 分享結果
-        </button>
-        <button v-if="isHost()" class="btn btn-primary" @click="handleRestartGame">
-          🔄 重新開始（保持設定）
-        </button>
-        <button class="btn btn-secondary" @click="handleLeaveRoom">
-          🏠 離開房間
-        </button>
+        <!-- 底部操作按鈕 -->
+        <div class="celebration-actions">
+          <button class="celebration-btn primary-btn" @click="shareResults">
+            <span class="btn-icon">📤</span>
+            <span class="btn-text">分享結果</span>
+          </button>
+          <button v-if="isHost()" class="celebration-btn restart-btn" @click="handleRestartGame">
+            <span class="btn-icon">🔄</span>
+            <span class="btn-text">再玩一次</span>
+          </button>
+          <button class="celebration-btn leave-btn" @click="handleLeaveRoom">
+            <span class="btn-icon">🏠</span>
+            <span class="btn-text">離開房間</span>
+          </button>
+        </div>
       </div>
     </template>
 
@@ -417,56 +435,124 @@
       </div>
     </div>
 
-    <!-- 設定彈窗 -->
+    <!-- 設定彈窗 - 權限分級 -->
     <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
-      <div class="modal-content" style="max-width: 600px;">
+      <div class="modal-content settings-modal">
         <h3>{{ isHost() && roomState?.gameState === 'waiting' ? '⚙️ 房間設定' : '📋 查看設定' }}</h3>
-        <div style="margin: 15px 0; text-align: left; max-height: 400px; overflow-y: auto;">
-          <p><strong>🎲 Seed:</strong> {{ roomState?.seed }}</p>
-          <p><strong>🏠 房間代碼:</strong> {{ roomState?.id }}</p>
+        <div class="settings-content">
           
-          <!-- 參與者名單 -->
-          <p><strong>👥 參與者 ({{ roomState?.players.length }}人):</strong></p>
-          <div style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0;">
-            <span 
-              v-for="(player, i) in roomState?.players" 
-              :key="player.id"
-              style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;"
-            >
-              {{ player.participantId }}. {{ player.name }}
-              <span v-if="player.isHost">👑</span>
-            </span>
-          </div>
-          
-          <p><strong>🎯 起始模式:</strong> {{ roomState?.settings.firstDrawerMode === 'random' ? '隨機' : roomState?.settings.firstDrawerMode === 'manual' ? '手動指定' : '主機優先' }}</p>
-          <p><strong>📊 目前進度:</strong> {{ roomState?.results.length || 0 }} / {{ roomState?.players.length }}</p>
-          <p><strong>👁️ 允許觀眾加入:</strong> {{ roomState?.settings.allowSpectators ? '是' : '否' }}</p>
-          
-          <!-- 觀眾連結按鈕 -->
-          <div v-if="roomState?.settings.allowSpectators" style="margin-top: 10px;">
-            <button class="btn btn-secondary btn-sm" @click="copySpectatorLink">
-              👁️ 複製觀眾連結
-            </button>
-          </div>
-          
-          <!-- 主機在等待階段可編輯人數上限 -->
-          <template v-if="isHost() && roomState?.gameState === 'waiting'">
-            <div class="setting-row" style="margin-top: 15px;">
-              <label><strong>👥 人數上限:</strong></label>
-              <div class="max-players-input">
-                <button class="btn btn-sm" @click="decreaseMaxPlayers" :disabled="newMaxPlayers <= (roomState?.players.length || 2)">-</button>
-                <span class="max-players-value">{{ newMaxPlayers }}</span>
-                <button class="btn btn-sm" @click="increaseMaxPlayers" :disabled="newMaxPlayers >= 100">+</button>
+          <!-- 基本設定區域 (所有人可見) -->
+          <div class="settings-section basic-settings">
+            <div class="section-header">
+              <h4>📋 基本資訊</h4>
+            </div>
+            
+            <div class="setting-item">
+              <span class="setting-label">🏠 房間代碼:</span>
+              <span class="setting-value">{{ roomState?.id }}</span>
+            </div>
+            
+            <div class="setting-item">
+              <span class="setting-label">👥 參與者人數:</span>
+              <span class="setting-value">{{ roomState?.players.length }} / {{ roomState?.settings.maxPlayers }} 人</span>
+            </div>
+            
+            <div class="setting-item">
+              <span class="setting-label">🎯 起始模式:</span>
+              <span class="setting-value">{{ roomState?.settings.firstDrawerMode === 'random' ? '隨機' : roomState?.settings.firstDrawerMode === 'manual' ? '手動指定' : '主機優先' }}</span>
+            </div>
+            
+            <div class="setting-item">
+              <span class="setting-label">📊 目前進度:</span>
+              <span class="setting-value">{{ roomState?.results.length || 0 }} / {{ roomState?.players.length }}</span>
+            </div>
+            
+            <div class="setting-item">
+              <span class="setting-label">👁️ 允許觀眾:</span>
+              <span class="setting-value">{{ roomState?.settings.allowSpectators ? '是' : '否' }}</span>
+            </div>
+            
+            <!-- 參與者名單 -->
+            <div class="participants-list">
+              <p class="list-title">👥 參與者名單:</p>
+              <div class="participant-chips">
+                <span 
+                  v-for="player in roomState?.players" 
+                  :key="player.id"
+                  class="participant-chip"
+                >
+                  {{ player.participantId }}. {{ player.name }}
+                  <span v-if="player.isHost" class="host-badge">👑</span>
+                </span>
               </div>
             </div>
-            <p v-if="newMaxPlayers < (roomState?.players.length || 0)" class="warning-text">
-              ⚠️ 人數上限不能小於目前人數 ({{ roomState?.players.length }})
-            </p>
+          </div>
+          
+          <!-- 進階設定區域 (僅主持人可見) -->
+          <template v-if="isHost()">
+            <div class="settings-divider"></div>
+            
+            <div class="settings-section advanced-settings">
+              <div class="section-header">
+                <h4>🔧 進階設定</h4>
+                <span class="section-badge host-only">僅主持人可見</span>
+              </div>
+              
+              <div class="setting-item">
+                <span class="setting-label">🎲 Seed:</span>
+                <span class="setting-value seed-value">{{ roomState?.seed }}</span>
+              </div>
+              
+              <!-- 觀眾連結按鈕 -->
+              <div v-if="roomState?.settings.allowSpectators" class="advanced-action">
+                <button class="btn btn-secondary btn-sm" @click="copySpectatorLink">
+                  👁️ 複製觀眾連結
+                </button>
+              </div>
+              
+              <!-- 主機在等待階段可編輯人數上限 -->
+              <template v-if="roomState?.gameState === 'waiting'">
+                <div class="setting-item editable-setting">
+                  <label class="setting-label">👥 人數上限:</label>
+                  <div class="max-players-control">
+                    <button class="control-btn" @click="decreaseMaxPlayers" :disabled="newMaxPlayers <= (roomState?.players.length || 2)">-</button>
+                    <span class="control-value">{{ newMaxPlayers }}</span>
+                    <button class="control-btn" @click="increaseMaxPlayers" :disabled="newMaxPlayers >= 100">+</button>
+                  </div>
+                </div>
+                <p v-if="newMaxPlayers < (roomState?.players.length || 0)" class="warning-text">
+                  ⚠️ 人數上限不能小於目前人數 ({{ roomState?.players.length }})
+                </p>
+              </template>
+            </div>
           </template>
+          
+          <!-- 非主持人提示 -->
+          <template v-else>
+            <div class="settings-divider"></div>
+            <div class="non-host-notice">
+              <div class="notice-icon">🔒</div>
+              <div class="notice-text">
+                <p class="notice-title">進階設定僅主持人可修改</p>
+                <p class="notice-desc">如需修改房間設定，請聯繫主持人</p>
+              </div>
+            </div>
+          </template>
+          
         </div>
+        
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showSettingsModal = false">{{ isHost() && roomState?.gameState === 'waiting' ? '取消' : '關閉' }}</button>
-          <button v-if="isHost() && roomState?.gameState === 'waiting'" class="btn btn-primary" @click="saveRoomSettings" :disabled="newMaxPlayers < (roomState?.players.length || 2)">儲存設定</button>
+          <button class="btn btn-secondary" @click="showSettingsModal = false">
+            {{ isHost() && roomState?.gameState === 'waiting' ? '取消' : '關閉' }}
+          </button>
+          <button 
+            v-if="isHost() && roomState?.gameState === 'waiting'" 
+            class="btn btn-primary" 
+            @click="saveRoomSettings" 
+            :disabled="newMaxPlayers < (roomState?.players.length || 2)"
+          >
+            儲存設定
+          </button>
         </div>
       </div>
     </div>
@@ -1679,6 +1765,219 @@ function celebrate() {
   border: 1px solid rgba(255,255,255,0.2);
 }
 
+/* 設定面板特殊樣式 */
+.modal-content.settings-modal {
+  max-width: 600px;
+  text-align: left;
+}
+
+.settings-content {
+  margin: 20px 0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.settings-section {
+  margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.section-badge {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section-badge.host-only {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #333;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.setting-label {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+}
+
+.setting-value {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+}
+
+.seed-value {
+  font-family: 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.participants-list {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.list-title {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 10px;
+}
+
+.participant-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.participant-chip {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.host-badge {
+  font-size: 1rem;
+}
+
+.settings-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  margin: 20px 0;
+}
+
+.advanced-settings {
+  background: rgba(255, 215, 0, 0.05);
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.advanced-action {
+  margin-top: 12px;
+}
+
+.editable-setting {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
+.max-players-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.control-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.control-value {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.non-host-notice {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.notice-icon {
+  font-size: 2.5rem;
+  opacity: 0.7;
+}
+
+.notice-text {
+  flex: 1;
+}
+
+.notice-title {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 5px 0;
+  font-size: 1rem;
+}
+
+.notice-desc {
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.warning-text {
+  color: #ffeb3b;
+  font-size: 0.85rem;
+  margin: 8px 0 0 0;
+  padding: 8px;
+  background: rgba(255, 235, 59, 0.1);
+  border-radius: 6px;
+  border-left: 3px solid #ffeb3b;
+}
+
 .modal-buttons {
   display: flex;
   gap: 10px;
@@ -1956,6 +2255,259 @@ function celebrate() {
   
   .social-buttons {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 慶祝畫面樣式 */
+.celebration-container {
+  min-height: 100vh;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.celebration-banner {
+  text-align: center;
+  margin-bottom: 40px;
+  animation: slideDown 0.6s ease-out;
+}
+
+.celebration-title {
+  font-size: 2.5rem;
+  color: #fff;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  margin: 20px 0;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.confetti-animation {
+  font-size: 3rem;
+  display: inline-block;
+  animation: bounce 1s infinite ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-20px) rotate(-10deg); }
+  75% { transform: translateY(-15px) rotate(10deg); }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.result-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto 40px;
+  padding: 0 10px;
+}
+
+.result-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeInUp 0.6s ease-out backwards;
+}
+
+.result-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+}
+
+.result-card.highlight-card {
+  border: 3px solid #ffd700;
+  background: linear-gradient(135deg, #fffacd 0%, #fff8dc 100%);
+  box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-badge {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.3rem;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+  border: 3px solid #fff;
+}
+
+.card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.player-section {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.3s;
+}
+
+.drawer-section {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.gift-section {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+}
+
+.player-avatar, .gift-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.player-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.player-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.arrow-icon {
+  font-size: 2.5rem;
+  color: #667eea;
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+.celebration-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.celebration-btn {
+  padding: 16px 32px;
+  font-size: 1.1rem;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  justify-content: center;
+}
+
+.celebration-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.celebration-btn:active {
+  transform: translateY(-2px);
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.restart-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
+}
+
+.leave-btn {
+  background: rgba(255, 255, 255, 0.95);
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.btn-icon {
+  font-size: 1.4rem;
+}
+
+.btn-text {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .celebration-title {
+    font-size: 2rem;
+  }
+  
+  .result-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .card-body {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .arrow-icon {
+    transform: rotate(90deg);
+    font-size: 2rem;
+  }
+  
+  .celebration-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .celebration-btn {
+    width: 100%;
+    min-width: auto;
   }
 }
 </style>

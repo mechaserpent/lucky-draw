@@ -226,39 +226,56 @@
       </div>
     </div>
 
-    <!-- 完成階段 -->
+    <!-- 完成階段 - 全新慶祝畫面 -->
     <template v-if="state.phase === 'complete'">
-      <div class="card" style="text-align: center;">
-        <h2>🎉 抽獎完成！</h2>
-        <p style="font-size: 1.2rem; margin: 20px 0;">所有人都已完成抽獎</p>
-      </div>
-      
-      <div class="card">
-        <h2>📋 最終結果</h2>
-        <div class="results-list">
+      <div class="celebration-container">
+        <!-- 慶祝橫幅 -->
+        <div class="celebration-banner">
+          <div class="confetti-animation">🎉</div>
+          <h1 class="celebration-title">🎊 抽獎結果揭曉！</h1>
+          <div class="confetti-animation">🎉</div>
+        </div>
+
+        <!-- 結果卡片網格 -->
+        <div class="result-cards-grid">
           <div 
             v-for="r in state.results" 
             :key="r.order"
-            class="result-item"
+            class="result-card"
+            :style="{ animationDelay: `${r.order * 0.1}s` }"
           >
-            <span class="order">{{ r.order }}</span>
-            <span class="drawer">{{ getParticipant(r.drawerId)?.name }}</span>
-            <span class="arrow">➡️</span>
-            <span class="gift">{{ getParticipant(r.giftOwnerId)?.name }} 的禮物</span>
+            <div class="card-badge">#{r.order}</div>
+            <div class="card-body">
+              <div class="player-section drawer-section">
+                <div class="player-avatar">👤</div>
+                <div class="player-name">{{ getParticipant(r.drawerId)?.name }}</div>
+                <div class="player-label">抽獎者</div>
+              </div>
+              <div class="arrow-icon">➡️</div>
+              <div class="player-section gift-section">
+                <div class="gift-icon">🎁</div>
+                <div class="player-name">{{ getParticipant(r.giftOwnerId)?.name }}</div>
+                <div class="player-label">禮物擁有者</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="controls">
-        <button class="btn btn-success" @click="shareResults">
-          📤 分享結果
-        </button>
-        <button class="btn btn-danger" @click="showResetAllModal = true">
-          🔄 重新開始新一輪
-        </button>
-        <button class="btn btn-secondary" @click="router.push('/')">
-          🏠 返回首頁
-        </button>
+        <!-- 底部操作按鈕 -->
+        <div class="celebration-actions">
+          <button class="celebration-btn primary-btn" @click="shareResults">
+            <span class="btn-icon">📤</span>
+            <span class="btn-text">分享結果</span>
+          </button>
+          <button class="celebration-btn restart-btn" @click="showResetAllModal = true">
+            <span class="btn-icon">🔄</span>
+            <span class="btn-text">重新開始新一輪</span>
+          </button>
+          <button class="celebration-btn leave-btn" @click="router.push('/')">
+            <span class="btn-icon">🏠</span>
+            <span class="btn-text">返回首頁</span>
+          </button>
+        </div>
       </div>
     </template>
 
@@ -1447,6 +1464,253 @@ function celebrate() {
   
   .social-buttons {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* 慶祝畫面樣式 */
+.celebration-container {
+  min-height: 100vh;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.celebration-banner {
+  text-align: center;
+  margin-bottom: 40px;
+  animation: slideDown 0.6s ease-out;
+}
+
+.celebration-title {
+  font-size: 2.5rem;
+  color: #fff;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  margin: 20px 0;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.confetti-animation {
+  font-size: 3rem;
+  display: inline-block;
+  animation: bounce 1s infinite ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-20px) rotate(-10deg); }
+  75% { transform: translateY(-15px) rotate(10deg); }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.result-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto 40px;
+  padding: 0 10px;
+}
+
+.result-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeInUp 0.6s ease-out backwards;
+}
+
+.result-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-badge {
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.3rem;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+  border: 3px solid #fff;
+}
+
+.card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.player-section {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.3s;
+}
+
+.drawer-section {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.gift-section {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+}
+
+.player-avatar, .gift-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.player-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.player-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.arrow-icon {
+  font-size: 2.5rem;
+  color: #667eea;
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+.celebration-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.celebration-btn {
+  padding: 16px 32px;
+  font-size: 1.1rem;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  justify-content: center;
+}
+
+.celebration-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.celebration-btn:active {
+  transform: translateY(-2px);
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.restart-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #fff;
+}
+
+.leave-btn {
+  background: rgba(255, 255, 255, 0.95);
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.btn-icon {
+  font-size: 1.4rem;
+}
+
+.btn-text {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .celebration-title {
+    font-size: 2rem;
+  }
+  
+  .result-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .card-body {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .arrow-icon {
+    transform: rotate(90deg);
+    font-size: 2rem;
+  }
+  
+  .celebration-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .celebration-btn {
+    width: 100%;
+    min-width: auto;
   }
 }
 </style>

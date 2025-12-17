@@ -85,53 +85,69 @@ draw/
 
 ## ⚙️ 環境配置
 
-可以透過 `.env` 檔案自訂應用程式設定。複製 `.env.example` 為 `.env` 開始設定：
+複製 `.env.example` 為 `.env` 開始設定：
 
 ```bash
 cp .env.example .env
 ```
 
-### 可配置選項
+### 基本設定
 
-| 變數名稱 | 預設值 | 說明 |
-|---------|--------|------|
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
 | `NUXT_PUBLIC_SITE_TITLE` | 聖誕交換禮物抽獎 | 網站標題 |
-| `NUXT_PUBLIC_SITE_SUBTITLE` | 連鎖式抽獎 - 抽到誰的禮物，就換誰抽！ | 網站副標題 |
-| `NUXT_PUBLIC_SITE_ICON_LEFT` | 🎄 | 標題左側圖示 |
-| `NUXT_PUBLIC_SITE_ICON_RIGHT` | 🎁 | 標題右側圖示 |
-| `NUXT_PUBLIC_THEME_PRIMARY` | #c41e3a | 主題主色（聖誕紅） |
-| `NUXT_PUBLIC_THEME_SECONDARY` | #228b22 | 主題輔色（聖誕綠） |
-| `NUXT_PUBLIC_THEME_BG_FROM` | #1a472a | 背景漸層起始色 |
-| `NUXT_PUBLIC_THEME_BG_TO` | #2d1f1f | 背景漸層結束色 |
-| `NUXT_PUBLIC_MIN_PLAYERS` | 2 | 最小參與人數 |
+| `NUXT_PUBLIC_SITE_SUBTITLE` | 連鎖式抽獎... | 網站副標題 |
+| `NUXT_PUBLIC_SITE_ICON_LEFT` | 🎄 | 左側圖示 |
+| `NUXT_PUBLIC_SITE_ICON_RIGHT` | 🎁 | 右側圖示 |
+
+### 人數限制
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_MIN_PLAYERS` | 2 | 最小人數 |
 | `NUXT_PUBLIC_MAX_PLAYERS` | 100 | 主持模式最大人數 |
 | `NUXT_PUBLIC_ONLINE_MAX_PLAYERS` | 50 | 連線模式最大人數 |
 | `NUXT_PUBLIC_ROOM_CODE_LENGTH` | 6 | 房間代碼長度 |
-| `NUXT_PUBLIC_FEATURES_SNOWFLAKES` | true | 是否顯示雪花動畫 |
-| `NUXT_PUBLIC_FEATURES_PASSWORD_PROTECTION` | true | 是否啟用密碼保護 |
+
+### 主題色彩
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_THEME_PRIMARY` | #c41e3a | 主色調（按鈕） |
+| `NUXT_PUBLIC_THEME_SECONDARY` | #228b22 | 次要色調 |
+| `NUXT_PUBLIC_THEME_BG_FROM` | #1a472a | 背景漸層起始 |
+| `NUXT_PUBLIC_THEME_BG_TO` | #2d1f1f | 背景漸層結束 |
+
+### 功能開關
+
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_FEATURES_SNOWFLAKES` | true | 雪花動畫 |
+| `NUXT_PUBLIC_FEATURES_PASSWORD_PROTECTION` | true | 密碼保護 |
+
+### 國際化設定
+
+在 `nuxt.config.ts` 中配置：
+- 預設語言：`zh-HK`（香港繁體中文）
+- 支援語言：`zh-HK`, `en`
+- 語言檔案位於 `locales/` 目錄
+- Cookie 儲存語言偏好（`i18n_locale`）
 
 ### 配置範例
 
-#### 公司活動主題
+**年終活動主題：**
 ```env
-NUXT_PUBLIC_SITE_TITLE=年終交換禮物抽獎
-NUXT_PUBLIC_SITE_SUBTITLE=公司年終活動專用
+NUXT_PUBLIC_SITE_TITLE=年終交換禮物
 NUXT_PUBLIC_SITE_ICON_LEFT=🎊
-NUXT_PUBLIC_SITE_ICON_RIGHT=🎉
 NUXT_PUBLIC_MAX_PLAYERS=200
-NUXT_PUBLIC_ONLINE_MAX_PLAYERS=100
 ```
 
-#### 新年主題
+**新年主題：**
 ```env
 NUXT_PUBLIC_SITE_TITLE=新年交換禮物
-NUXT_PUBLIC_SITE_SUBTITLE=新年快樂！一起來抽禮物吧！
 NUXT_PUBLIC_SITE_ICON_LEFT=🧧
-NUXT_PUBLIC_SITE_ICON_RIGHT=🎆
 NUXT_PUBLIC_THEME_PRIMARY=#d4af37
-NUXT_PUBLIC_THEME_SECONDARY=#c41e3a
 NUXT_PUBLIC_THEME_BG_FROM=#8b0000
-NUXT_PUBLIC_THEME_BG_TO=#2d0a0a
 NUXT_PUBLIC_FEATURES_SNOWFLAKES=false
 ```
 

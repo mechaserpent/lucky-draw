@@ -1,10 +1,10 @@
 /**
- * 房間管理服務 - 支持資料庫持久化
+ * WebSocket 路由處理
  * 
- * 功能：
- * - 房間 CRUD
- * - 玩家管理（加入、離開、斷線重連）
+ * 支援功能：
+ * - 房間管理（建立、加入、離開）
  * - 觀眾模式
+ * - 斷線重連
  * - 抽獎設定與執行
  */
 
@@ -12,10 +12,7 @@ import { db, schema, initDatabase } from '../database'
 import { eq, and, desc } from 'drizzle-orm'
 import { randomBytes } from 'crypto'
 
-// 初始化資料庫
 initDatabase()
-
-// ==================== 類型定義 ====================
 
 export interface RoomSettings {
   maxPlayers: number

@@ -20,12 +20,10 @@ interface Peer {
 
 const peers = new Map<string, Peer>()
 
-// 生成玩家 ID
 function generatePlayerId(): string {
   return 'P' + Math.random().toString(36).substring(2, 10).toUpperCase()
 }
 
-// 廣播給房間內所有人（玩家 + 觀眾）
 function broadcastToRoom(roomId: string, message: object, excludeId?: string) {
   for (const [id, peer] of peers) {
     if (peer.roomId === roomId && id !== excludeId) {
@@ -34,7 +32,6 @@ function broadcastToRoom(roomId: string, message: object, excludeId?: string) {
   }
 }
 
-// 將 Room 轉換為前端格式（兼容舊版）
 function toRoomState(room: Awaited<ReturnType<typeof roomService.getRoom>>): RoomState | null {
   if (!room) return null
   
@@ -53,7 +50,6 @@ function toRoomState(room: Awaited<ReturnType<typeof roomService.getRoom>>): Roo
   }
 }
 
-// 發送錯誤訊息
 function sendError(peer: any, message: string) {
   peer.send(JSON.stringify({
     type: 'error',

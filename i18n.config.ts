@@ -5,10 +5,10 @@
 
 export default {
   legacy: false,
-  locale: 'zh-TW',
-  fallbackLocale: 'zh-TW',
+  locale: 'zh-HK',
+  fallbackLocale: 'zh-HK',
   messages: {
-    'zh-TW': () => import('./locales/zh-TW.json'),
+    'zh-HK': () => import('./locales/zh-HK.json'),
     'en': () => import('./locales/en.json')
   },
   detectBrowserLanguage: {
@@ -16,6 +16,6 @@ export default {
     cookieKey: 'i18n_redirected',
     redirectOn: 'root',
     alwaysRedirect: false,
-    fallbackLocale: 'zh-TW'
+    fallbackLocale: 'zh-HK'
   }
 }

@@ -57,8 +57,6 @@ export function useWebSocket() {
     }
   }
   
-  // ==================== 連線管理 ====================
-  
   function connect() {
     if (ws.value?.readyState === WebSocket.OPEN) return
     
@@ -109,11 +107,14 @@ export function useWebSocket() {
     }
   }
   
-  // ==================== 重連管理 ====================
-  
   function saveReconnectInfo(info: ReconnectInfo) {
     try {
       localStorage.setItem(RECONNECT_STORAGE_KEY, JSON.stringify(info))
+      console.log('[Reconnect] Info saved:', { 
+        roomId: info.roomId, 
+        playerId: info.playerId,
+        expiresAt: new Date(info.expiresAt).toLocaleString()
+      })
     } catch (e) {
       console.error('Failed to save reconnect info:', e)
     }
@@ -122,18 +123,29 @@ export function useWebSocket() {
   function getReconnectInfo(): ReconnectInfo | null {
     try {
       const data = localStorage.getItem(RECONNECT_STORAGE_KEY)
-      if (!data) return null
+      if (!data) {
+        console.log('[Reconnect] No saved info found')
+        return null
+      }
       
       const info: ReconnectInfo = JSON.parse(data)
       
-      // 檢查是否過期（24 小時）
+      // 檢查是否過期（2 小時）
       if (info.expiresAt < Date.now()) {
+        console.log('[Reconnect] Info expired:', new Date(info.expiresAt).toLocaleString())
         clearReconnectInfo()
         return null
       }
       
+      console.log('[Reconnect] Valid info found:', { 
+        roomId: info.roomId, 
+        playerId: info.playerId,
+        remainingTime: Math.round((info.expiresAt - Date.now()) / 1000 / 60) + ' minutes'
+      })
+      
       return info
     } catch (e) {
+      console.error('[Reconnect] Failed to get info:', e)
       return null
     }
   }
@@ -141,17 +153,41 @@ export function useWebSocket() {
   function clearReconnectInfo() {
     try {
       localStorage.removeItem(RECONNECT_STORAGE_KEY)
+      console.log('[Reconnect] Info cleared')
     } catch (e) {
       console.error('Failed to clear reconnect info:', e)
     }
   }
   
+  /**
+   * 嘗試自動重連到房間
+   * 在 WebSocket 連線建立後自動調用
+   */
   function tryAutoReconnect() {
-    const info = getReconnectInfo()
-    if (!info) return
+    // 使用 useDeviceId 的重連資訊
+    const { getReconnectInfo: getDeviceReconnectInfo } = useDeviceId()
+    const info = getDeviceReconnectInfo()
     
-    console.log('Attempting auto-reconnect to room:', info.roomId)
+    if (!info) {
+      console.log('[Reconnect] No reconnect info available')
+      return
+    }
     
+    // 檢查 token 是否過期
+    if (info.expiresAt < Date.now()) {
+      console.log('[Reconnect] Token expired')
+      const { clearReconnectInfo: clearDeviceReconnectInfo } = useDeviceId()
+      clearDeviceReconnectInfo()
+      return
+    }
+    
+    console.log('[Reconnect] Attempting auto-reconnect...', {
+      roomId: info.roomId,
+      playerId: info.playerId,
+      playerName: info.playerName
+    })
+    
+    // 發送重連請求
     send({
       type: 'reconnect',
       payload: {
@@ -159,9 +195,32 @@ export function useWebSocket() {
         reconnectToken: info.reconnectToken
       }
     })
+    
+    // 設定超時檢測（5秒內沒有收到回應視為失敗）
+    setTimeout(() => {
+      if (!roomState.value) {
+        console.log('[Reconnect] Timeout - no response from server')
+        emit('reconnectFailed', '重連超時，請重新加入房間')
+      }
+    }, 5000)
   }
   
-  // ==================== 訊息處理 ====================
+  /**
+   * 手動觸發重連
+   * 用於使用者主動嘗試重連的情況
+   */
+  function manualReconnect() {
+    console.log('[Reconnect] Manual reconnect triggered')
+    
+    if (!isConnected.value) {
+      console.log('[Reconnect] Not connected, establishing connection first')
+      connect()
+      // 連線建立後會自動觸發 tryAutoReconnect
+      return
+    }
+    
+    tryAutoReconnect()
+  }
   
   function handleMessage(msg: WSMessage) {
     console.log('WS Message:', msg.type, msg.payload)
@@ -202,7 +261,21 @@ export function useWebSocket() {
         roomState.value = msg.payload.room
         const reconnectedPlayer = msg.payload.player
         myRole.value = reconnectedPlayer?.role || 'player'
+        console.log('[Reconnect] Success!', {
+          roomId: roomState.value.id,
+          playerId: reconnectedPlayer.id,
+          playerName: reconnectedPlayer.name,
+          role: myRole.value
+        })
         emit('reconnectSuccess', { room: roomState.value, player: reconnectedPlayer })
+        break
+        
+      case 'reconnect_failed':
+        console.log('[Reconnect] Failed:', msg.payload.message)
+        // 清除過期的重連資訊
+        const { clearReconnectInfo: clearDeviceReconnectInfo } = useDeviceId()
+        clearDeviceReconnectInfo()
+        emit('reconnectFailed', msg.payload.message)
         break
         
       case 'room_updated':
@@ -238,7 +311,11 @@ export function useWebSocket() {
       
       case 'room_disbanded':
         roomState.value = null
+        // 清除所有重連資訊
         clearReconnectInfo()
+        const { clearReconnectInfo: clearDeviceReconnectInfo2 } = useDeviceId()
+        clearDeviceReconnectInfo2()
+        console.log('[Room] Disbanded - reconnect info cleared')
         emit('roomDisbanded', msg.payload.message)
         break
         
@@ -279,8 +356,6 @@ export function useWebSocket() {
         break
     }
   }
-  
-  // ==================== 房間管理 ====================
   
   function createRoom(hostName: string, settings: Partial<RoomSettings> = {}) {
     const { getDeviceId } = useDeviceId()
@@ -380,8 +455,6 @@ export function useWebSocket() {
     })
   }
   
-  // ==================== 工具函數 ====================
-  
   function getCurrentPlayer(): RoomPlayer | null {
     if (!roomState.value || !playerId.value) return null
     return [...roomState.value.players, ...roomState.value.spectators]
@@ -410,7 +483,8 @@ export function useWebSocket() {
   }
   
   function hasReconnectInfo(): boolean {
-    return getReconnectInfo() !== null
+    const { getReconnectInfo: getDeviceReconnectInfo } = useDeviceId()
+    return getDeviceReconnectInfo() !== null
   }
   
   return {
@@ -429,11 +503,12 @@ export function useWebSocket() {
     on,
     off,
     
-    // 重連
+    // 重連管理
     hasReconnectInfo,
     getReconnectInfo,
     clearReconnectInfo,
-    reconnect,
+    tryAutoReconnect,
+    manualReconnect,
     
     // 房間操作
     createRoom,

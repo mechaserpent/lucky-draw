@@ -21,8 +21,8 @@ const availableLocales = computed(() => {
   return (locales.value as any[]).map(loc => ({
     code: loc.code,
     name: loc.name,
-    flag: loc.code === 'zh-TW' ? '🇹🇼' : '🇬🇧',
-    short: loc.code === 'zh-TW' ? '中' : 'EN'
+    flag: loc.code === 'zh-HK' ? '🇭🇰' : '🇬🇧',
+    short: loc.code === 'zh-HK' ? '中' : 'EN'
   }))
 })
 
