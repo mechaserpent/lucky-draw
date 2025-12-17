@@ -357,7 +357,7 @@ export default defineWebSocketHandler({
           }
           
           const { maxPlayers } = msg.payload
-          if (typeof maxPlayers !== 'number') {
+          if (typeof maxPlayers !== 'number' || !Number.isFinite(maxPlayers) || !Number.isInteger(maxPlayers)) {
             peer.send(JSON.stringify({
               type: 'error',
               payload: { message: '無效的人數上限' }
