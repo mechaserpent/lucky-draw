@@ -124,10 +124,10 @@ export function useShareImage() {
         ctx.font = isHighlight ? 'bold 38px Arial' : 'bold 36px Arial'
         ctx.fillText(`${r.order}.`, padding + (isHighlight ? 80 : 50), y)
         
-        // 抽獎者和結果 - 使用更有趣的表達方式
+        // 抽獎者和結果 - 簡化顯示
         ctx.font = isHighlight ? 'bold 36px Arial, "Microsoft YaHei", sans-serif' : '36px Arial, "Microsoft YaHei", sans-serif'
         const arrow = isHighlight ? '🎁' : '➡️'
-        const text = `${r.drawerName} ${arrow} ${r.giftOwnerName} 的禮物`
+        const text = `${r.drawerName} ${arrow} ${r.giftOwnerName}`
         ctx.fillText(text, padding + 160, y)
       })
       

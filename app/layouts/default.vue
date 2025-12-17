@@ -149,7 +149,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
 }
 
 /* 按鈕 */
@@ -157,7 +157,7 @@ body {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
@@ -205,7 +205,7 @@ body {
 
 .btn-lg {
   padding: 16px 32px;
-  font-size: 1.2rem;
+  font-size: 1.05rem;
 }
 
 .btn-block {
@@ -216,7 +216,7 @@ body {
   background: transparent;
   color: rgba(255,255,255,0.7);
   padding: 8px 16px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -233,7 +233,7 @@ body {
   border-radius: 8px;
   background: rgba(255,255,255,0.15);
   color: #fff;
-  font-size: 1rem;
+  font-size: 0.9rem;
   width: 100%;
 }
 
@@ -276,7 +276,7 @@ body {
 
 .modal-content h3 {
   margin-bottom: 20px;
-  font-size: 1.3rem;
+  font-size: 1.15rem;
 }
 
 .modal-buttons {
@@ -293,7 +293,7 @@ header {
 }
 
 header h1 {
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
   margin-bottom: 10px;
 }
@@ -350,7 +350,7 @@ header h1 {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
 }
 
 .modal-close {
@@ -386,7 +386,7 @@ header h1 {
 
 header p {
   opacity: 0.9;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 /* 控制區 */
@@ -400,7 +400,7 @@ header p {
 /* 響應式 */
 @media (max-width: 600px) {
   header h1 {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
   }
 
   .controls {

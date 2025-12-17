@@ -117,7 +117,7 @@ async function shareToInstagram() {
       link.download = 'lucky-draw.png'
       link.click()
       URL.revokeObjectURL(url)
-      showToast('圖片已下載，請手動上傳到 Instagram')
+      showToast('下載完成，請手動上傳到 Instagram')
     }
   } catch (e) {
     console.error('Share to Instagram failed:', e)

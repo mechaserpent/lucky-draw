@@ -173,7 +173,7 @@
           </div>
 
           <div class="draw-result" :class="{ show: showResult }">
-            抽到了 <span class="gift-owner">{{ resultGiftOwner }}</span> 的禮物！
+            抽到 <span class="gift-owner">{{ resultGiftOwner }}</span>
           </div>
 
           <!-- 自己是當前抽獎者 -->
@@ -207,7 +207,7 @@
             <span class="order">{{ r.order }}</span>
             <span class="drawer">{{ getPlayerName(r.drawerId) }}</span>
             <span class="arrow">➡️</span>
-            <span class="gift">{{ getPlayerName(r.giftOwnerId) }} 的禮物</span>
+            <span class="gift">{{ getPlayerName(r.giftOwnerId) }}</span>
           </div>
         </div>
       </div>
@@ -960,7 +960,7 @@ async function handleShareText() {
   roomState.value.results.forEach(r => {
     const drawer = getPlayerName(r.drawerId)
     const giftOwner = getPlayerName(r.giftOwnerId)
-    lines.push(`${r.order}. ${drawer} ➡️ ${giftOwner} 的禮物`)
+    lines.push(`${r.order}. ${drawer} ➡️ ${giftOwner}`)
   })
   lines.push('')
   lines.push(`🎲 Seed: ${roomState.value.seed}`)
@@ -1020,7 +1020,7 @@ async function handleDownloadImage() {
 
   if (blob) {
     downloadImage(blob, `交換禮物結果_${roomState.value.seed}.png`)
-    displayError('✅ 圖片已下載！')
+    displayError('✅ 下載完成！')
     showShareModal.value = false
   }
 }
@@ -1303,6 +1303,10 @@ function celebrate() {
   overflow: hidden;
 }
 
+.draw-box.drawing {
+  animation: shake 0.5s ease-in-out infinite;
+}
+
 .draw-box::before {
   content: '';
   position: absolute;
@@ -1343,6 +1347,18 @@ function celebrate() {
 
   50% {
     transform: translateY(-10px) scale(1.1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px) rotate(-2deg);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px) rotate(2deg);
   }
 }
 

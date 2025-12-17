@@ -261,13 +261,16 @@ export function useWebSocket() {
         roomState.value = msg.payload.room
         const reconnectedPlayer = msg.payload.player
         myRole.value = reconnectedPlayer?.role || 'player'
+        playerId.value = reconnectedPlayer.id
         console.log('[Reconnect] Success!', {
           roomId: roomState.value.id,
           playerId: reconnectedPlayer.id,
           playerName: reconnectedPlayer.name,
-          role: myRole.value
+          role: myRole.value,
+          isHost: reconnectedPlayer.isHost
         })
         emit('reconnectSuccess', { room: roomState.value, player: reconnectedPlayer })
+        emit('roomUpdated', roomState.value) // 觸發 roomUpdated 確保 UI 更新
         break
         
       case 'reconnect_failed':
