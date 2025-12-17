@@ -81,6 +81,7 @@
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'saved'): void
+  (e: 'needsRefresh'): void
 }>()
 
 const { settings, updateSettings, resetSettings, getDefaultSettings } = useDynamicConfig()
@@ -156,14 +157,13 @@ function resetToDefault() {
 }
 
 function saveAndClose() {
+  const snowflakeChanged = localSettings.showSnowflakes !== settings.value.showSnowflakes
   updateSettings({ ...localSettings })
   emit('saved')
   emit('close')
-  // 需要重新載入頁面以套用雪花設定
-  if (localSettings.showSnowflakes !== settings.value.showSnowflakes) {
-    setTimeout(() => {
-      window.location.reload()
-    }, 100)
+  // 如果雪花設定改變，提示用戶重新整理
+  if (snowflakeChanged) {
+    emit('needsRefresh')
   }
 }
 </script>
