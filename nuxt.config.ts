@@ -40,7 +40,9 @@ export default defineNuxtConfig({
       title: process.env.NUXT_PUBLIC_SITE_ICON_LEFT + ' ' + (process.env.NUXT_PUBLIC_SITE_TITLE || '聖誕交換禮物抽獎'),
       meta: [
         { name: 'robots', content: 'noindex, nofollow' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'description', content: '連鎖式抽獎遊戲 - 支援單機與連線模式' },
       ],
       link: [
@@ -59,7 +61,7 @@ export default defineNuxtConfig({
       { code: 'en', name: 'English', file: 'en.json' }
     ],
     lazy: true,
-    langDir: 'locales/',
+    langDir: 'locales',
     defaultLocale: 'zh-HK',
     strategy: 'no_prefix',
     detectBrowserLanguage: {

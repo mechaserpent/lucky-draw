@@ -1,15 +1,5 @@
 <template>
   <div>
-    <!-- 設定按鈕（固定在右上角） -->
-    <button class="settings-fab" @click="showAppSettingsModal = true" title="設定">
-      ⚙️
-    </button>
-
-    <!-- 語言切換器（固定在左上角） -->
-    <div class="language-switcher-container">
-      <LanguageSwitcher />
-    </div>
-
     <header>
       <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{ dynamicConfig.settings.value.siteIconRight }}</h1>
       <p>{{ dynamicConfig.settings.value.siteSubtitle }}</p>
@@ -220,21 +210,6 @@
       </div>
     </div>
 
-    <!-- 應用設定彈窗 -->
-    <div class="modal-overlay" v-if="showAppSettingsModal" @click.self="showAppSettingsModal = false">
-      <div class="modal-content modal-lg">
-        <div class="modal-header">
-          <h3>⚙️ 設定</h3>
-          <button class="close-btn" @click="showAppSettingsModal = false">✕</button>
-        </div>
-        <AppSettingsPanel 
-          @close="showAppSettingsModal = false" 
-          @saved="onSettingsSaved" 
-          @needsRefresh="onNeedsRefresh" 
-        />
-      </div>
-    </div>
-
     <!-- 舊版主題設定彈窗（保留兼容） -->
     <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
       <div class="modal-content modal-lg">
@@ -265,7 +240,7 @@ const router = useRouter()
 const route = useRoute()
 const dynamicConfig = useDynamicConfig()
 const { state, loadState, initGame, getPassword, setPassword } = useGameState()
-const { connect, createRoom: wsCreateRoom, joinRoom: wsJoinRoom, on, roomState, error } = useWebSocket()
+const { connect, createRoom: wsCreateRoom, joinRoom: wsJoinRoom, on, off, roomState, error } = useWebSocket()
 const { history: historyRecords, formatTime: formatHistoryTime, clearHistory } = useHistory()
 
 // 生成隨機用戶名稱
@@ -278,7 +253,6 @@ function generateRandomUsername(): string {
 const showSoloModal = ref(false)
 const showOnlineModal = ref(false)
 const showCreateRoomModal = ref(false)
-const showAppSettingsModal = ref(false)
 const showJoinRoomModal = ref(false)
 const showSettingsModal = ref(false)
 const showClearHistoryConfirm = ref(false)
@@ -581,40 +555,6 @@ function joinRoom() {
 
 .online-options {
   margin: 20px 0;
-}
-
-/* 設定按鈕（FAB 風格） */
-.settings-fab {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.3);
-  color: #fff;
-  font-size: 1.5rem;
-  cursor: pointer;
-  z-index: 100;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-}
-
-.settings-fab:hover {
-  background: rgba(255,255,255,0.25);
-  transform: rotate(90deg);
-}
-
-/* 語言切換器容器 */
-.language-switcher-container {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 100;
 }
 
 /* Modal Header */

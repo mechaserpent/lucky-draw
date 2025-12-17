@@ -1,11 +1,12 @@
 <template>
   <div>
     <header>
-      <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{ dynamicConfig.settings.value.siteIconRight }}</h1>
+      <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{
+        dynamicConfig.settings.value.siteIconRight }}</h1>
       <p>
         <span class="mode-badge online">🌐 連線模式</span>
         用自己的裝置參與
-      </p>      
+      </p>
     </header>
 
     <!-- 連線中 -->
@@ -17,13 +18,13 @@
     <template v-else-if="roomState?.gameState === 'waiting'">
       <div class="card">
         <h2>🏠 房間資訊</h2>
-        
+
         <div class="room-info">
           <div class="room-code">
             <span class="label">房間代碼</span>
             <span class="code">{{ roomState.id }}</span>
           </div>
-          
+
           <div class="room-stats">
             <span>👥 {{ roomState.players.length }} / {{ roomState.settings.maxPlayers }} 人</span>
             <span>🎲 Seed: {{ roomState.seed }}</span>
@@ -34,36 +35,25 @@
           <p>📱 分享房間代碼給朋友加入！</p>
           <div class="share-buttons">
             <button class="btn btn-secondary" @click="copyRoomLink">📋 複製連結</button>
-            <button 
-              v-if="roomState.settings.allowSpectators" 
-              class="btn btn-secondary" 
-              @click="copySpectatorLink"
-            >👁️ 觀眾連結</button>
+            <button v-if="roomState.settings.allowSpectators" class="btn btn-secondary" @click="copySpectatorLink">👁️
+              觀眾連結</button>
           </div>
         </div>
       </div>
 
       <div class="card">
         <h2>👥 玩家列表</h2>
-        
+
         <div class="players-list">
-          <div 
-            v-for="player in roomState.players" 
-            :key="player.id"
-            class="player-item"
-            :class="{ 'is-me': player.id === playerId, 'is-host': player.isHost }"
-          >
+          <div v-for="player in roomState.players" :key="player.id" class="player-item"
+            :class="{ 'is-me': player.id === playerId, 'is-host': player.isHost }">
             <span class="player-number">{{ player.participantId }}</span>
             <span class="player-name">
               {{ player.name }}
               <span v-if="player.isHost" class="host-badge">👑</span>
               <span v-if="player.id === playerId" class="me-badge">(你)</span>
-              <button 
-                v-if="player.id === playerId && roomState.gameState === 'waiting'"
-                class="btn-edit-name"
-                @click="openRenameModal"
-                title="更改名稱"
-              >✏️</button>
+              <button v-if="player.id === playerId && roomState.gameState === 'waiting'" class="btn-edit-name"
+                @click="openRenameModal" title="更改名稱">✏️</button>
             </span>
             <span class="ready-status" :class="{ ready: player.isReady }">
               {{ player.isReady ? '✅ 準備' : '⏳ 等待' }}
@@ -75,11 +65,8 @@
       <div class="card" v-if="!isHost()">
         <h2>🎮 準備狀態</h2>
         <div class="controls">
-          <button 
-            class="btn btn-lg"
-            :class="getCurrentPlayer()?.isReady ? 'btn-danger' : 'btn-success'"
-            @click="toggleReady"
-          >
+          <button class="btn btn-lg" :class="getCurrentPlayer()?.isReady ? 'btn-danger' : 'btn-success'"
+            @click="toggleReady">
             {{ getCurrentPlayer()?.isReady ? '❌ 取消準備' : '✅ 我準備好了' }}
           </button>
         </div>
@@ -87,30 +74,24 @@
 
       <div class="card" v-if="isHost()">
         <h2>👑 主機控制</h2>
-        
+
         <!-- 人數顯示 -->
         <div class="room-player-count">
           👥 目前人數: {{ roomState.players.length }} / {{ roomState.settings.maxPlayers }}
         </div>
-        
+
         <!-- 協助加入玩家 -->
         <div class="add-player-section">
           <h4>➕ 協助加入玩家</h4>
           <div class="add-player-form">
-            <input 
-              type="text" 
-              class="input" 
-              v-model="addPlayerName" 
-              placeholder="輸入玩家名字..."
-              autocomplete="off"
-              @keypress.enter="handleAddPlayer"
-            >
+            <input type="text" class="input" v-model="addPlayerName" placeholder="輸入玩家名字..." autocomplete="off"
+              @keypress.enter="handleAddPlayer">
             <button class="btn btn-secondary" @click="handleAddPlayer" :disabled="!addPlayerName.trim()">
               新增
             </button>
           </div>
         </div>
-        
+
         <!-- 抽獎設定 -->
         <div class="draw-settings-section">
           <h4>⚙️ 抽獎設定</h4>
@@ -132,12 +113,12 @@
               </select>
             </div>
           </div>
-          
+
           <!-- 進階選項入口 -->
           <div class="advanced-toggle" @click="showAdvancedSettings = true">
             🔧 進階選項
           </div>
-          
+
           <!-- 允許觀眾 -->
           <div class="spectator-toggle">
             <label>
@@ -146,13 +127,9 @@
             </label>
           </div>
         </div>
-        
+
         <div class="host-buttons">
-          <button 
-            class="btn btn-primary btn-lg"
-            @click="handleStartGame"
-            :disabled="roomState.players.length < 2"
-          >
+          <button class="btn btn-primary btn-lg" @click="handleStartGame" :disabled="roomState.players.length < 2">
             🎲 {{ allPlayersReady ? '開始遊戲' : '強制開始' }}
           </button>
           <button class="btn btn-warning" @click="openSettingsModal">
@@ -162,7 +139,7 @@
             🚪 離開房間
           </button>
         </div>
-        
+
         <p v-if="!allPlayersReady" style="opacity: 0.7; font-size: 0.85rem; margin-top: 10px;">
           ⚠️ 有玩家尚未準備，強制開始將忽略未準備狀態
         </p>
@@ -184,47 +161,36 @@
             {{ roomState.results.length + 1 }} / {{ roomState.players.length }}
           </span>
         </h2>
-        
+
         <div class="draw-area">
           <div class="current-drawer">
             現在由 <span class="name">{{ currentDrawerName }}</span> 抽獎
             <span v-if="isCurrentDrawer()" class="your-turn">（輪到你了！）</span>
           </div>
-          
+
           <div class="draw-box" :class="{ drawing: isDrawing }">
             <span class="content">{{ drawBoxContent }}</span>
           </div>
-          
+
           <div class="draw-result" :class="{ show: showResult }">
             抽到了 <span class="gift-owner">{{ resultGiftOwner }}</span> 的禮物！
           </div>
-          
+
           <!-- 自己是當前抽獎者 -->
-          <button 
-            v-if="isCurrentDrawer() && !hasDrawnCurrent" 
-            class="btn btn-primary btn-lg" 
-            @click="handlePerformDraw"
-            :disabled="isDrawing"
-          >
+          <button v-if="isCurrentDrawer() && !hasDrawnCurrent" class="btn btn-primary btn-lg" @click="handlePerformDraw"
+            :disabled="isDrawing">
             🎲 抽獎！
           </button>
-          
+
           <!-- 主機可以幫忙抽 -->
-          <button 
-            v-else-if="isHost() && !hasDrawnCurrent" 
-            class="btn btn-secondary btn-lg" 
-            @click="handleHostDraw"
-            :disabled="isDrawing"
-          >
+          <button v-else-if="isHost() && !hasDrawnCurrent" class="btn btn-secondary btn-lg" @click="handleHostDraw"
+            :disabled="isDrawing">
             🎲 代替抽獎
           </button>
-          
+
           <!-- 主機控制下一位 -->
-          <button 
-            v-if="isHost() && hasDrawnCurrent && roomState.currentIndex < roomState.players.length - 1"
-            class="btn btn-success btn-lg" 
-            @click="handleNextDrawer"
-          >
+          <button v-if="isHost() && hasDrawnCurrent && roomState.currentIndex < roomState.players.length - 1"
+            class="btn btn-success btn-lg" @click="handleNextDrawer">
             ➡️ 下一位
           </button>
         </div>
@@ -237,11 +203,7 @@
           <div v-if="roomState.results.length === 0" style="opacity: 0.6; text-align: center;">
             尚無抽獎結果
           </div>
-          <div 
-            v-for="r in roomState.results" 
-            :key="r.order"
-            class="result-item"
-          >
+          <div v-for="r in roomState.results" :key="r.order" class="result-item">
             <span class="order">{{ r.order }}</span>
             <span class="drawer">{{ getPlayerName(r.drawerId) }}</span>
             <span class="arrow">➡️</span>
@@ -261,56 +223,12 @@
       </div>
     </template>
 
-    <!-- 遊戲完成 - 全新慶祝畫面 -->
+    <!-- 遊戲完成 - 跳轉至結果頁面 -->
     <template v-else-if="roomState?.gameState === 'complete'">
-      <div class="celebration-container">
-        <!-- 慶祝橫幅 -->
-        <div class="celebration-banner">
-          <div class="confetti-animation">🎉</div>
-          <h1 class="celebration-title">🎊 抽獎結果揭曉！</h1>
-          <div class="confetti-animation">🎉</div>
-        </div>
-
-        <!-- 結果卡片網格 -->
-        <div class="result-cards-grid">
-          <div 
-            v-for="r in roomState.results" 
-            :key="r.order"
-            class="result-card"
-            :class="{ 'highlight-card': r.drawerId === playerId }"
-            :style="{ animationDelay: `${r.order * 0.1}s` }"
-          >
-            <div class="card-badge">#{r.order}</div>
-            <div class="card-body">
-              <div class="player-section drawer-section">
-                <div class="player-avatar">👤</div>
-                <div class="player-name">{{ getPlayerName(r.drawerId) }}</div>
-                <div class="player-label">抽獎者</div>
-              </div>
-              <div class="arrow-icon">➡️</div>
-              <div class="player-section gift-section">
-                <div class="gift-icon">🎁</div>
-                <div class="player-name">{{ getPlayerName(r.giftOwnerId) }}</div>
-                <div class="player-label">禮物擁有者</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 底部操作按鈕 -->
-        <div class="celebration-actions">
-          <button class="celebration-btn primary-btn" @click="shareResults">
-            <span class="btn-icon">📤</span>
-            <span class="btn-text">分享結果</span>
-          </button>
-          <button v-if="isHost()" class="celebration-btn restart-btn" @click="handleRestartGame">
-            <span class="btn-icon">🔄</span>
-            <span class="btn-text">再玩一次</span>
-          </button>
-          <button class="celebration-btn leave-btn" @click="handleLeaveRoom">
-            <span class="btn-icon">🏠</span>
-            <span class="btn-text">離開房間</span>
-          </button>
+      <div class="loading-overlay">
+        <div class="loading-content">
+          <div class="loading-spinner">🎉</div>
+          <h2>正在準備結果頁面...</h2>
         </div>
       </div>
     </template>
@@ -318,32 +236,28 @@
     <!-- 進度側邊面板 -->
     <div class="progress-panel" v-if="roomState?.gameState === 'playing' || roomState?.gameState === 'complete'">
       <h4>📊 抽獎進度</h4>
-      <div class="progress-bar">
-        <div 
-          class="progress-fill" 
-          :style="{ width: `${(roomState.results.length / roomState.players.length) * 100}%` }"
-        ></div>
-      </div>
-      <div class="progress-text">
-        {{ roomState.results.length }} / {{ roomState.players.length }}
-      </div>
-      <div class="player-status-list">
-        <div 
-          v-for="p in roomState.players" 
-          :key="p.id"
-          class="player-status-item"
-          :class="{ 
+      <div class="progress-content">
+        <div class="progress-bar">
+          <div class="progress-fill"
+            :style="{ width: `${(roomState.results.length / roomState.players.length) * 100}%` }">
+          </div>
+        </div>
+        <div class="progress-text">
+          {{ roomState.results.length }} / {{ roomState.players.length }}
+        </div>
+        <div class="player-status-list">
+          <div v-for="p in roomState.players" :key="p.id" class="player-status-item" :class="{
             'is-current': roomState.drawOrder[roomState.currentIndex] === p.participantId,
             'has-drawn': roomState.results.some(r => r.drawerId === p.participantId)
-          }"
-        >
-          <span class="status-icon">
-            {{ roomState.results.some(r => r.drawerId === p.participantId) ? '✅' : 
-               roomState.drawOrder[roomState.currentIndex] === p.participantId ? '🎯' : '⏳' }}
-          </span>
-          <span class="player-name">{{ p.name }}</span>
+          }">
+            <span class="status-icon">
+              {{roomState.results.some(r => r.drawerId === p.participantId) ? '✅' :
+                roomState.drawOrder[roomState.currentIndex] === p.participantId ? '🎯' : '⏳'}}
+            </span>
+            <span class="player-name">{{ p.name }}</span>
+          </div>
         </div>
-      </div>
+    </div>
     </div>
 
     <!-- 離開確認彈窗 -->
@@ -365,15 +279,8 @@
       <div class="modal-content">
         <h3>✏️ 更改名稱</h3>
         <div style="margin: 15px 0;">
-          <input 
-            type="text" 
-            class="input" 
-            v-model="newPlayerName" 
-            placeholder="輸入新名稱..."
-            maxlength="20"
-            @keypress.enter="handleRename"
-            autofocus
-          >
+          <input type="text" class="input" v-model="newPlayerName" placeholder="輸入新名稱..." maxlength="20"
+            @keypress.enter="handleRename" autofocus>
         </div>
         <div class="modal-buttons">
           <button class="btn btn-secondary" @click="showRenameModal = false">取消</button>
@@ -382,228 +289,179 @@
       </div>
     </div>
 
-    <!-- 分享選項彈窗 -->
-    <div class="modal-overlay" v-if="showShareModal" @click.self="showShareModal = false">
-      <div class="modal-content" style="max-width: 500px;">
-        <h3>📤 分享結果</h3>
-        <div style="margin: 20px 0;">
-          <div class="share-options">
-            <button class="share-option-btn" @click="handleShareText">
-              <span class="share-icon">📝</span>
-              <span>文字版分享</span>
-            </button>
-            <button class="share-option-btn" @click="handleShareImage">
-              <span class="share-icon">🖼️</span>
-              <span>圖片版分享</span>
-            </button>
-            <button class="share-option-btn" @click="handleDownloadImage">
-              <span class="share-icon">⬇️</span>
-              <span>下載圖片</span>
-            </button>
-          </div>
-          
-          <div class="social-share-section" style="margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-            <h4 style="margin-bottom: 15px; font-size: 0.95rem; opacity: 0.9;">快速分享至：</h4>
-            <div class="social-share-buttons">
-              <button class="social-share-btn" @click="shareToSocial('facebook')" title="Facebook">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </button>
-              <button class="social-share-btn" @click="shareToSocial('twitter')" title="X (Twitter)">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-              </button>
-              <button class="social-share-btn" @click="shareToSocial('threads')" title="Threads">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.781 3.631 2.695 6.541 2.717 2.623-.02 4.653-.787 6.03-2.28 1.044-1.133 1.743-2.64 2.08-4.48-.453-.107-.997-.21-1.61-.31-2.464-.403-5.37-.872-7.052-2.622-1.315-1.366-1.97-3.254-1.948-5.614.024-2.48.753-4.463 2.168-5.895C13.284 1.247 15.245.623 17.5.6c1.732.019 3.202.43 4.37 1.223 1.16.788 2.017 1.931 2.547 3.396l-1.936.734c-.824-2.225-2.534-3.359-5.086-3.373-1.73.015-3.164.497-4.26 1.432-1.095.936-1.65 2.354-1.667 4.267-.014 1.874.48 3.315 1.47 4.286 1.14 1.12 3.355 1.467 5.452 1.813.665.11 1.312.22 1.917.357 1.242.282 2.325.678 3.225 1.178 1.16.645 2.023 1.484 2.563 2.494.54 1.01.805 2.224.79 3.61-.016 1.613-.453 3.066-1.301 4.323-1.04 1.542-2.532 2.757-4.436 3.613-1.905.856-4.128 1.292-6.612 1.292z"/></svg>
-              </button>
-              <button class="social-share-btn" @click="shareToSocial('line')" title="LINE">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
-              </button>
-              <button class="social-share-btn" @click="shareToSocial('telegram')" title="Telegram">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-              </button>
-              <button class="social-share-btn" @click="shareToSocial('whatsapp')" title="WhatsApp">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-              </button>
-              <button class="social-share-btn" @click="copyShareLink" title="複製連結">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M10.59 13.41c.41.39.41 1.03 0 1.42-.39.39-1.03.39-1.42 0a5.003 5.003 0 0 1 0-7.07l3.54-3.54a5.003 5.003 0 0 1 7.07 0 5.003 5.003 0 0 1 0 7.07l-1.49 1.49c.01-.82-.12-1.64-.4-2.42l.47-.48a2.982 2.982 0 0 0 0-4.24 2.982 2.982 0 0 0-4.24 0l-3.53 3.53a2.982 2.982 0 0 0 0 4.24zm2.82-4.24c.39-.39 1.03-.39 1.42 0a5.003 5.003 0 0 1 0 7.07l-3.54 3.54a5.003 5.003 0 0 1-7.07 0 5.003 5.003 0 0 1 0-7.07l1.49-1.49c-.01.82.12 1.64.4 2.43l-.47.47a2.982 2.982 0 0 0 0 4.24 2.982 2.982 0 0 0 4.24 0l3.53-3.53a2.982 2.982 0 0 0 0-4.24.973.973 0 0 1 0-1.42z"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showShareModal = false">關閉</button>
-        </div>
-      </div>
-    </div>
-
     <!-- 設定彈窗 - 權限分級 -->
     <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
-      <div class="modal-content settings-modal">
-        <h3>{{ isHost() && roomState?.gameState === 'waiting' ? '⚙️ 房間設定' : '📋 查看設定' }}</h3>
-        <div class="settings-content">
-          
-          <!-- 基本設定區域 (所有人可見) -->
-          <div class="settings-section basic-settings">
+    <div class="modal-content settings-modal">
+      <h3>{{ isHost() && roomState?.gameState === 'waiting' ? '⚙️ 房間設定' : '📋 查看設定' }}</h3>
+      <div class="settings-content">
+
+        <!-- 基本設定區域 (所有人可見) -->
+        <div class="settings-section basic-settings">
+          <div class="section-header">
+            <h4>📋 基本資訊</h4>
+          </div>
+
+          <div class="setting-item">
+            <span class="setting-label">🏠 房間代碼:</span>
+            <span class="setting-value">{{ roomState?.id }}</span>
+          </div>
+
+          <div class="setting-item">
+            <span class="setting-label">👥 參與者人數:</span>
+            <span class="setting-value">{{ roomState?.players.length }} / {{ roomState?.settings.maxPlayers }} 人</span>
+          </div>
+
+          <div class="setting-item">
+            <span class="setting-label">🎯 起始模式:</span>
+            <span class="setting-value">{{ roomState?.settings.firstDrawerMode === 'random' ? '隨機' :
+              roomState?.settings.firstDrawerMode === 'manual' ? '手動指定' : '主機優先' }}</span>
+          </div>
+
+          <div class="setting-item">
+            <span class="setting-label">📊 目前進度:</span>
+            <span class="setting-value">{{ roomState?.results.length || 0 }} / {{ roomState?.players.length }}</span>
+          </div>
+
+          <div class="setting-item">
+            <span class="setting-label">👁️ 允許觀眾:</span>
+            <span class="setting-value">{{ roomState?.settings.allowSpectators ? '是' : '否' }}</span>
+          </div>
+
+          <!-- 參與者名單 -->
+          <div class="participants-list">
+            <p class="list-title">👥 參與者名單:</p>
+            <div class="participant-chips">
+              <span v-for="player in roomState?.players" :key="player.id" class="participant-chip">
+                {{ player.participantId }}. {{ player.name }}
+                <span v-if="player.isHost" class="host-badge">👑</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 進階設定區域 (僅主持人可見) -->
+        <template v-if="isHost()">
+          <div class="settings-divider"></div>
+
+          <div class="settings-section advanced-settings">
             <div class="section-header">
-              <h4>📋 基本資訊</h4>
+              <h4>🔧 進階設定</h4>
+              <span class="section-badge host-only">僅主持人可見</span>
             </div>
-            
+
             <div class="setting-item">
-              <span class="setting-label">🏠 房間代碼:</span>
-              <span class="setting-value">{{ roomState?.id }}</span>
+              <span class="setting-label">🎲 Seed:</span>
+              <span class="setting-value seed-value">{{ roomState?.seed }}</span>
             </div>
-            
-            <div class="setting-item">
-              <span class="setting-label">👥 參與者人數:</span>
-              <span class="setting-value">{{ roomState?.players.length }} / {{ roomState?.settings.maxPlayers }} 人</span>
+
+            <!-- 觀眾連結按鈕 -->
+            <div v-if="roomState?.settings.allowSpectators" class="advanced-action">
+              <button class="btn btn-secondary btn-sm" @click="copySpectatorLink">
+                👁️ 複製觀眾連結
+              </button>
             </div>
-            
-            <div class="setting-item">
-              <span class="setting-label">🎯 起始模式:</span>
-              <span class="setting-value">{{ roomState?.settings.firstDrawerMode === 'random' ? '隨機' : roomState?.settings.firstDrawerMode === 'manual' ? '手動指定' : '主機優先' }}</span>
-            </div>
-            
-            <div class="setting-item">
-              <span class="setting-label">📊 目前進度:</span>
-              <span class="setting-value">{{ roomState?.results.length || 0 }} / {{ roomState?.players.length }}</span>
-            </div>
-            
-            <div class="setting-item">
-              <span class="setting-label">👁️ 允許觀眾:</span>
-              <span class="setting-value">{{ roomState?.settings.allowSpectators ? '是' : '否' }}</span>
-            </div>
-            
-            <!-- 參與者名單 -->
-            <div class="participants-list">
-              <p class="list-title">👥 參與者名單:</p>
-              <div class="participant-chips">
-                <span 
-                  v-for="player in roomState?.players" 
-                  :key="player.id"
-                  class="participant-chip"
-                >
-                  {{ player.participantId }}. {{ player.name }}
-                  <span v-if="player.isHost" class="host-badge">👑</span>
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- 進階設定區域 (僅主持人可見) -->
-          <template v-if="isHost()">
-            <div class="settings-divider"></div>
-            
-            <div class="settings-section advanced-settings">
-              <div class="section-header">
-                <h4>🔧 進階設定</h4>
-                <span class="section-badge host-only">僅主持人可見</span>
-              </div>
-              
-              <div class="setting-item">
-                <span class="setting-label">🎲 Seed:</span>
-                <span class="setting-value seed-value">{{ roomState?.seed }}</span>
-              </div>
-              
-              <!-- 觀眾連結按鈕 -->
-              <div v-if="roomState?.settings.allowSpectators" class="advanced-action">
-                <button class="btn btn-secondary btn-sm" @click="copySpectatorLink">
-                  👁️ 複製觀眾連結
-                </button>
-              </div>
-              
-              <!-- 主機在等待階段可編輯人數上限 -->
-              <template v-if="roomState?.gameState === 'waiting'">
-                <div class="setting-item editable-setting">
-                  <label class="setting-label">👥 人數上限:</label>
-                  <div class="max-players-control">
-                    <button class="control-btn" @click="decreaseMaxPlayers" :disabled="newMaxPlayers <= (roomState?.players.length || 2)">-</button>
-                    <span class="control-value">{{ newMaxPlayers }}</span>
-                    <button class="control-btn" @click="increaseMaxPlayers" :disabled="newMaxPlayers >= 100">+</button>
-                  </div>
+
+            <!-- 主機在等待階段可編輯人數上限 -->
+            <template v-if="roomState?.gameState === 'waiting'">
+              <div class="setting-item editable-setting">
+                <label class="setting-label">👥 人數上限:</label>
+                <div class="max-players-control">
+                  <button class="control-btn" @click="decreaseMaxPlayers"
+                    :disabled="newMaxPlayers <= (roomState?.players.length || 2)">-</button>
+                  <span class="control-value">{{ newMaxPlayers }}</span>
+                  <button class="control-btn" @click="increaseMaxPlayers" :disabled="newMaxPlayers >= 100">+</button>
                 </div>
-                <p v-if="newMaxPlayers < (roomState?.players.length || 0)" class="warning-text">
-                  ⚠️ 人數上限不能小於目前人數 ({{ roomState?.players.length }})
-                </p>
-              </template>
-            </div>
-          </template>
-          
-          <!-- 非主持人提示 -->
-          <template v-else>
-            <div class="settings-divider"></div>
-            <div class="non-host-notice">
-              <div class="notice-icon">🔒</div>
-              <div class="notice-text">
-                <p class="notice-title">進階設定僅主持人可修改</p>
-                <p class="notice-desc">如需修改房間設定，請聯繫主持人</p>
               </div>
+              <p v-if="newMaxPlayers < (roomState?.players.length || 0)" class="warning-text">
+                ⚠️ 人數上限不能小於目前人數 ({{ roomState?.players.length }})
+              </p>
+            </template>
+          </div>
+        </template>
+
+        <!-- 非主持人提示 -->
+        <template v-else>
+          <div class="settings-divider"></div>
+          <div class="non-host-notice">
+            <div class="notice-icon">🔒</div>
+            <div class="notice-text">
+              <p class="notice-title">進階設定僅主持人可修改</p>
+              <p class="notice-desc">如需修改房間設定，請聯繫主持人</p>
             </div>
-          </template>
-          
-        </div>
-        
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showSettingsModal = false">
-            {{ isHost() && roomState?.gameState === 'waiting' ? '取消' : '關閉' }}
-          </button>
-          <button 
-            v-if="isHost() && roomState?.gameState === 'waiting'" 
-            class="btn btn-primary" 
-            @click="saveRoomSettings" 
-            :disabled="newMaxPlayers < (roomState?.players.length || 2)"
-          >
-            儲存設定
-          </button>
-        </div>
+          </div>
+        </template>
+
+      </div>
+
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" @click="showSettingsModal = false">
+          {{ isHost() && roomState?.gameState === 'waiting' ? '取消' : '關閉' }}
+        </button>
+        <button v-if="isHost() && roomState?.gameState === 'waiting'" class="btn btn-primary" @click="saveRoomSettings"
+          :disabled="newMaxPlayers < (roomState?.players.length || 2)">
+          儲存設定
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- 房間解散提示 -->
-    <div class="modal-overlay" v-if="showRoomDisbandModal">
-      <div class="modal-content">
-        <h3>❌ 房間已解散</h3>
-        <p style="margin: 15px 0;">主機已離開，房間已解散。</p>
-        <div class="modal-buttons">
-          <button class="btn btn-primary" @click="goHome">返回首頁</button>
-        </div>
+  <!-- 房間解散提示 -->
+  <div class="modal-overlay" v-if="showRoomDisbandModal">
+    <div class="modal-content">
+      <h3>❌ 房間已解散</h3>
+      <p style="margin: 15px 0;">主機已離開，房間已解散。</p>
+      <div class="modal-buttons">
+        <button class="btn btn-primary" @click="goHome">返回首頁</button>
       </div>
     </div>
+  </div>
 
-    <!-- 進階設定區 -->
-    <div class="modal-overlay" v-if="showAdvancedSettings" @click.self="showAdvancedSettings = false">
-      <div class="modal-content">
-        <h3>🔧 進階設定</h3>
-        <div style="text-align: left; margin: 15px 0;">
-          <p style="margin-bottom: 10px;">🎯 指定配對：</p>
-          <div class="fixed-pair-item">
-            <select v-model="fixedDrawerId">
-              <option :value="undefined">選擇 A</option>
-              <option v-for="player in roomState?.players" :key="player.id" :value="player.participantId">
-                #{{ player.participantId }}
-              </option>
-            </select>
-            <span>→</span>
-            <select v-model="fixedGiftId">
-              <option :value="undefined">選擇 B</option>
-              <option v-for="player in roomState?.players" :key="player.id" :value="player.participantId">
-                #{{ player.participantId }}
-              </option>
-            </select>
-            <button class="btn btn-secondary btn-sm" @click="handleAddFixedPair">➕</button>
-          </div>
-          <div class="fixed-pairs-list" style="margin-top: 10px;">
-            <span 
-              v-for="fp in fixedPairs" 
-              :key="fp.drawerId"
-              class="fixed-pair-tag"
-            >
-              #{{ fp.drawerId }} → #{{ fp.giftOwnerId }}
-              <span class="remove" @click="removeFixedPair(fp.drawerId)">✕</span>
-            </span>
-            <p v-if="fixedPairs.length === 0" style="opacity: 0.6; font-size: 0.9rem;">無設定</p>
-          </div>
+  <!-- 進階設定區 -->
+  <div class="modal-overlay" v-if="showAdvancedSettings" @click.self="showAdvancedSettings = false">
+    <div class="modal-content">
+      <h3>🔧 進階設定</h3>
+      <div style="text-align: left; margin: 15px 0;">
+        <p style="margin-bottom: 10px;">🎯 指定配對：</p>
+        <div class="fixed-pair-item">
+          <select v-model="fixedDrawerId">
+            <option :value="undefined">選擇 A</option>
+            <option v-for="player in roomState?.players" :key="player.id" :value="player.participantId">
+              #{{ player.participantId }}
+            </option>
+          </select>
+          <span>→</span>
+          <select v-model="fixedGiftId">
+            <option :value="undefined">選擇 B</option>
+            <option v-for="player in roomState?.players" :key="player.id" :value="player.participantId">
+              #{{ player.participantId }}
+            </option>
+          </select>
+          <button class="btn btn-secondary btn-sm" @click="handleAddFixedPair">➕</button>
         </div>
+        <div class="fixed-pairs-list" style="margin-top: 10px;">
+          <span v-for="fp in fixedPairs" :key="fp.drawerId" class="fixed-pair-tag">
+            #{{ fp.drawerId }} → #{{ fp.giftOwnerId }}
+            <span class="remove" @click="removeFixedPair(fp.drawerId)">✕</span>
+          </span>
+          <p v-if="fixedPairs.length === 0" style="opacity: 0.6; font-size: 0.9rem;">無設定</p>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" @click="showAdvancedSettings = false">關閉</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- QR Code 彈窗 -->
+    <div class="modal-overlay" v-if="showQRModal" @click.self="showQRModal = false">
+      <div class="modal-content qr-modal">
+        <h3>📱 掃描 QR Code 加入</h3>
+        <div class="qr-container">
+          <canvas ref="qrCanvas" class="qr-code"></canvas>
+        </div>
+        <div class="qr-url">{{ qrCodeUrl }}</div>
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showAdvancedSettings = false">關閉</button>
+          <button class="btn btn-primary" @click="showQRModal = false">關閉</button>
         </div>
       </div>
     </div>
@@ -621,10 +479,10 @@
 const router = useRouter()
 const dynamicConfig = useDynamicConfig()
 const { addRecord: addHistoryRecord } = useHistory()
-const { 
-  isConnected, 
-  playerId, 
-  roomState, 
+const {
+  isConnected,
+  playerId,
+  roomState,
   error,
   connect,
   disconnect,
@@ -653,6 +511,9 @@ const showSettingsModal = ref(false)
 const showRoomDisbandModal = ref(false)
 const showAdvancedSettings = ref(false)
 const showShareModal = ref(false)
+const showQRModal = ref(false)
+const qrCodeUrl = ref('')
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
 
 // 表單數據
 const addPlayerName = ref('')
@@ -666,7 +527,7 @@ const allowSpectators = ref(true)
 // 進階設定
 const fixedDrawerId = ref<number | undefined>(undefined)
 const fixedGiftId = ref<number | undefined>(undefined)
-const fixedPairs = ref<{drawerId: number, giftOwnerId: number}[]>([])
+const fixedPairs = ref<{ drawerId: number, giftOwnerId: number }[]>([])
 
 // 錯誤提示
 const showErrorToast = ref(false)
@@ -687,8 +548,8 @@ const allPlayersReady = computed(() => {
 })
 const canStartGame = computed(() => {
   if (!roomState.value) return false
-  return roomState.value.players.length >= 2 && 
-         roomState.value.players.every(p => p.isReady || p.isHost)
+  return roomState.value.players.length >= 2 &&
+    roomState.value.players.every(p => p.isReady || p.isHost)
 })
 
 const currentDrawerName = computed(() => {
@@ -733,14 +594,14 @@ onMounted(() => {
   if (!isConnected.value) {
     connect()
   }
-  
+
   // 如果沒有房間狀態，回到首頁
   setTimeout(() => {
     if (!roomState.value) {
       router.push('/')
     }
   }, 2000)
-  
+
   // 先清除舊的事件監聽器，再註冊新的
   off('drawPerformed')
   off('nextDrawer')
@@ -749,7 +610,7 @@ onMounted(() => {
   off('gameRestarted')
   off('playerDisconnected')
   off('error')
-  
+
   // 監聽事件
   on('drawPerformed', onWsDrawPerformed)
   on('nextDrawer', onWsNextDrawer)
@@ -775,7 +636,7 @@ onUnmounted(() => {
     clearTimeout(autoProgressTimeout.value)
     autoProgressTimeout.value = null
   }
-  
+
   // 清除事件監聯器
   off('drawPerformed')
   off('nextDrawer')
@@ -808,16 +669,50 @@ function getPlayerName(participantId: number): string {
 
 // 複製房間連結
 function copyRoomLink() {
-  const url = `${window.location.origin}?room=${roomState.value?.id}`
+  const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}`
   navigator.clipboard.writeText(url)
+  showQRCode(url)
   displayError('✅ 已複製連結！')
 }
 
 // 複製觀眾連結
 function copySpectatorLink() {
-  const url = `${window.location.origin}?room=${roomState.value?.id}&spectator=true`
+  const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}&spectator=true`
   navigator.clipboard.writeText(url)
+  showQRCode(url)
   displayError('✅ 已複製觀眾連結！')
+}
+
+// 顯示 QR Code
+function showQRCode(url: string) {
+  qrCodeUrl.value = url
+  showQRModal.value = true
+  
+  // 等待 DOM 更新後生成 QR Code
+  nextTick(() => {
+    if (qrCanvas.value) {
+      generateQRCode(url, qrCanvas.value)
+    }
+  })
+}
+
+// 生成 QR Code
+function generateQRCode(text: string, canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // 簡易 QR Code 生成（使用第三方 API）
+  const size = 300
+  canvas.width = size
+  canvas.height = size
+  
+  // 使用 Google Charts API 生成 QR Code
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0, size, size)
+  }
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`
 }
 
 // 切換準備狀態
@@ -831,7 +726,7 @@ function toggleReady() {
 // 協助加入玩家
 function handleAddPlayer() {
   if (!addPlayerName.value.trim()) return
-  
+
   send({
     type: 'host_add_player',
     payload: { playerName: addPlayerName.value.trim() }
@@ -927,29 +822,29 @@ function decreaseMaxPlayers() {
 // 儲存房間設定
 function saveRoomSettings() {
   if (!roomState.value) return
-  
+
   // 遊戲開始後不可修改設定
   if (roomState.value.gameState !== 'waiting') {
     displayError('遊戲進行中無法修改設定')
     return
   }
-  
+
   const minPlayers = roomState.value.players.length
   if (newMaxPlayers.value < minPlayers) {
     displayError('人數上限不能小於目前人數')
     return
   }
-  
+
   send({
     type: 'update_settings',
-    payload: { 
+    payload: {
       maxPlayers: newMaxPlayers.value,
       firstDrawerMode: firstDrawerMode.value,
       firstDrawerId: firstDrawerMode.value === 'manual' ? firstDrawerId.value : undefined,
       allowSpectators: allowSpectators.value
     }
   })
-  
+
   showSettingsModal.value = false
 }
 
@@ -968,12 +863,12 @@ function handleAddFixedPair() {
     displayError('此抽獎者已有指定配對')
     return
   }
-  
+
   fixedPairs.value.push({
     drawerId: fixedDrawerId.value,
     giftOwnerId: fixedGiftId.value
   })
-  
+
   fixedDrawerId.value = undefined
   fixedGiftId.value = undefined
 }
@@ -993,14 +888,14 @@ function playDrawAnimation(result: any) {
     console.log('Animation already in progress, ignoring duplicate trigger')
     return
   }
-  
+
   animationInProgress = true
   isDrawing.value = true
   showResult.value = false
-  
+
   let shuffleCount = 0
   const maxShuffles = 20
-  
+
   const shuffleInterval = setInterval(() => {
     if (!roomState.value) {
       clearInterval(shuffleInterval)
@@ -1010,23 +905,23 @@ function playDrawAnimation(result: any) {
     const randomP = roomState.value.players[Math.floor(Math.random() * roomState.value.players.length)]
     drawBoxContent.value = randomP.name.charAt(0)
     shuffleCount++
-    
+
     if (shuffleCount >= maxShuffles) {
       clearInterval(shuffleInterval)
-      
+
       const giftOwner = getPlayerName(result.giftOwnerId)
       drawBoxContent.value = giftOwner.charAt(0)
       resultGiftOwner.value = giftOwner
-      
+
       isDrawing.value = false
       showResult.value = true
       hasDrawnCurrent.value = true
       animationInProgress = false
-      
+
       // Auto-progress to next drawer after a delay (only if host and game not complete)
-      if (isHost() && roomState.value && 
-          roomState.value.gameState === 'playing' &&
-          roomState.value.results.length < roomState.value.players.length) {
+      if (isHost() && roomState.value &&
+        roomState.value.gameState === 'playing' &&
+        roomState.value.results.length < roomState.value.players.length) {
         autoProgressTimeout.value = window.setTimeout(() => {
           autoProgressTimeout.value = null
           handleNextDrawer()
@@ -1043,10 +938,12 @@ function playDrawAnimation(result: any) {
 
 // 重新開始遊戲（保持設定，更新 seed）
 function handleRestartGame() {
-  send({
-    type: 'restart_game',
-    payload: {}
-  })
+  if (confirm('確定要重新開始遊戲嗎？所有抽獎記錄將會清空。')) {
+    send({
+      type: 'restart_game',
+      payload: {}
+    })
+  }
 }
 
 // 分享結果 - 打開分享選單
@@ -1057,7 +954,7 @@ async function shareResults() {
 // 分享文字版
 async function handleShareText() {
   if (!roomState.value) return
-  
+
   // 產生文字結果
   const lines = ['🎁 交換禮物抽籤結果 🎁', '']
   roomState.value.results.forEach(r => {
@@ -1067,9 +964,9 @@ async function handleShareText() {
   })
   lines.push('')
   lines.push(`🎲 Seed: ${roomState.value.seed}`)
-  
+
   const text = lines.join('\n')
-  
+
   // 直接複製到剪貼簿
   try {
     await navigator.clipboard.writeText(text)
@@ -1083,23 +980,23 @@ async function handleShareText() {
 // 分享圖片版
 async function handleShareImage() {
   if (!roomState.value) return
-  
+
   const results = roomState.value.results.map(r => ({
     order: r.order,
     drawerName: getPlayerName(r.drawerId),
     giftOwnerName: getPlayerName(r.giftOwnerId)
   }))
-  
+
   const currentPlayer = getCurrentPlayer()
   const blob = await generateResultImage(results, roomState.value.seed, 'online', currentPlayer?.name)
-  
+
   if (blob) {
     const success = await shareImage(
       blob,
       '交換禮物抽籤結果',
       '🎁 看看我的交換禮物抽籤結果！'
     )
-    
+
     if (success) {
       showShareModal.value = false
     } else {
@@ -1111,16 +1008,16 @@ async function handleShareImage() {
 // 下載圖片
 async function handleDownloadImage() {
   if (!roomState.value) return
-  
+
   const results = roomState.value.results.map(r => ({
     order: r.order,
     drawerName: getPlayerName(r.drawerId),
     giftOwnerName: getPlayerName(r.giftOwnerId)
   }))
-  
+
   const currentPlayer = getCurrentPlayer()
   const blob = await generateResultImage(results, roomState.value.seed, 'online', currentPlayer?.name)
-  
+
   if (blob) {
     downloadImage(blob, `交換禮物結果_${roomState.value.seed}.png`)
     displayError('✅ 圖片已下載！')
@@ -1132,10 +1029,21 @@ async function handleDownloadImage() {
 async function shareToSocial(platform: string) {
   if (!roomState.value) return
   
+  if (platform === 'copy') {
+    await copyShareLink()
+    return
+  }
+  
+  if (platform === 'instagram') {
+    // Instagram 需要通過圖片分享
+    await handleShareImage()
+    return
+  }
+
   const text = `🎁 交換禮物抽籤結果！Seed: ${roomState.value.seed}`
   const url = window.location.href
   const links = getSocialShareLinks(text, url)
-  
+
   const socialUrl = links[platform]
   if (socialUrl) {
     window.open(socialUrl, '_blank', 'width=600,height=400')
@@ -1153,20 +1061,39 @@ async function copyShareLink() {
 
 // 慶祝動畫
 function celebrate() {
-  // 保存歷史紀錄
+  // 保存歷史紀錄和結果
   if (roomState.value && roomState.value.results.length > 0) {
+    const resultsData = roomState.value.results.map(r => ({
+      order: r.order,
+      drawerName: getPlayerName(r.drawerId),
+      giftOwnerName: getPlayerName(r.giftOwnerId)
+    }))
+
     addHistoryRecord({
       mode: 'online',
       seed: roomState.value.seed,
       participantCount: roomState.value.players.length,
-      results: roomState.value.results.map(r => ({
-        order: r.order,
-        drawerName: getPlayerName(r.drawerId),
-        giftOwnerName: getPlayerName(r.giftOwnerId)
-      }))
+      results: resultsData
     })
+
+    // 保存結果到 localStorage 供 result 頁面使用
+    const resultId = `online_${roomState.value.id}_${roomState.value.seed}_${Date.now()}`
+    const resultData = {
+      id: resultId,
+      mode: 'online',
+      roomId: roomState.value.id,
+      seed: roomState.value.seed,
+      participantCount: roomState.value.players.length,
+      results: resultsData
+    }
+    localStorage.setItem(`result_${resultId}`, JSON.stringify(resultData))
+
+    // 跳轉到結果頁面
+    setTimeout(() => {
+      router.push({ path: '/result', query: { id: resultId } })
+    }, 2000) // 延遲 2 秒讓動畫播放
   }
-  
+
   const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7']
   const container = document.createElement('div')
   container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;'
@@ -1240,7 +1167,7 @@ function celebrate() {
 }
 
 .share-hint {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   padding: 15px;
   border-radius: 8px;
   text-align: center;
@@ -1268,14 +1195,14 @@ function celebrate() {
   align-items: center;
   gap: 15px;
   padding: 12px 16px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   transition: all 0.2s;
 }
 
 .player-item.is-me {
-  background: rgba(255,215,0,0.15);
-  border: 1px solid rgba(255,215,0,0.3);
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
 .player-item.is-host {
@@ -1329,11 +1256,11 @@ function celebrate() {
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .ready-status.ready {
-  background: rgba(40,167,69,0.3);
+  background: rgba(40, 167, 69, 0.3);
   color: #7fff7f;
 }
 
@@ -1344,8 +1271,15 @@ function celebrate() {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* 抽獎區 */
@@ -1364,7 +1298,7 @@ function celebrate() {
   align-items: center;
   justify-content: center;
   font-size: 4rem;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -1376,14 +1310,19 @@ function celebrate() {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
   transform: rotate(45deg);
   animation: shine 3s infinite;
 }
 
 @keyframes shine {
-  0% { transform: translateX(-100%) rotate(45deg); }
-  100% { transform: translateX(100%) rotate(45deg); }
+  0% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+
+  100% {
+    transform: translateX(100%) rotate(45deg);
+  }
 }
 
 .draw-box .content {
@@ -1396,8 +1335,15 @@ function celebrate() {
 }
 
 @keyframes shuffle {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-10px) scale(1.1); }
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-10px) scale(1.1);
+  }
 }
 
 .current-drawer {
@@ -1439,7 +1385,7 @@ function celebrate() {
   align-items: center;
   gap: 15px;
   padding: 12px 16px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   margin-bottom: 8px;
   flex-wrap: wrap;
@@ -1515,7 +1461,7 @@ function celebrate() {
 
 /* 主機控制區 */
 .room-player-count {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   padding: 10px 15px;
   border-radius: 8px;
   margin-bottom: 15px;
@@ -1523,7 +1469,7 @@ function celebrate() {
 }
 
 .add-player-section {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;
@@ -1546,7 +1492,7 @@ function celebrate() {
 
 /* 抽獎設定區 */
 .draw-settings-section {
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;
@@ -1575,15 +1521,15 @@ function celebrate() {
 .start-options select {
   padding: 6px 10px;
   border-radius: 6px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
   margin-left: 20px;
 }
 
 .advanced-toggle {
   padding: 8px 12px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
@@ -1592,7 +1538,7 @@ function celebrate() {
 }
 
 .advanced-toggle:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* 進階設定 - 指定配對 */
@@ -1606,8 +1552,8 @@ function celebrate() {
 .fixed-pair-item select {
   padding: 6px 10px;
   border-radius: 6px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
 }
 
@@ -1671,11 +1617,11 @@ function celebrate() {
   top: 100px;
   width: 200px;
   background: rgba(26, 71, 42, 0.95);
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   padding: 15px;
   z-index: 50;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .progress-panel h4 {
@@ -1684,7 +1630,7 @@ function celebrate() {
 }
 
 .progress-bar {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   height: 8px;
   border-radius: 4px;
   overflow: hidden;
@@ -1717,13 +1663,13 @@ function celebrate() {
   border-radius: 6px;
   font-size: 0.85rem;
   margin-bottom: 4px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   transition: all 0.2s;
 }
 
 .player-status-item.is-current {
-  background: rgba(255,215,0,0.2);
-  border: 1px solid rgba(255,215,0,0.4);
+  background: rgba(255, 215, 0, 0.2);
+  border: 1px solid rgba(255, 215, 0, 0.4);
 }
 
 .player-status-item.has-drawn {
@@ -1748,7 +1694,7 @@ function celebrate() {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1762,7 +1708,36 @@ function celebrate() {
   max-width: 400px;
   width: 90%;
   text-align: center;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* QR Code 彈窗樣式 */
+.qr-modal {
+  max-width: 400px;
+}
+
+.qr-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+}
+
+.qr-code {
+  max-width: 100%;
+  height: auto;
+}
+
+.qr-url {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  word-break: break-all;
+  margin: 15px 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
 }
 
 /* 設定面板特殊樣式 */
@@ -2007,7 +1982,7 @@ function celebrate() {
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   border-radius: 50%;
   color: #fff;
@@ -2015,7 +1990,7 @@ function celebrate() {
 }
 
 .max-players-input .btn-sm:hover:not(:disabled) {
-  background: rgba(255,255,255,0.3);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .max-players-input .btn-sm:disabled {
@@ -2048,15 +2023,45 @@ function celebrate() {
   .room-code .code {
     font-size: 2rem;
   }
-  
+
   .draw-box {
     width: 150px;
     height: 150px;
     font-size: 3rem;
   }
-  
+
   .host-buttons {
     flex-direction: column;
+  }
+
+  /* 手機版進度面板優化 */
+  .progress-panel {
+    display: none;
+    position: fixed;
+    right: 10px;
+    top: auto;
+    bottom: 20px;
+    width: auto;
+    min-width: 50px;
+    max-width: 90%;
+    background: rgba(0, 0, 0, 0.9);
+    opacity: 0.85;
+    transition: all 0.3s ease;
+    z-index: 1000;
+  }
+
+  .progress-panel:hover {
+    opacity: 1;
+  }
+
+  .progress-panel h4 {
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .progress-panel .player-status-list {
+    max-height: 150px;
+    overflow-y: auto;
   }
 }
 
@@ -2084,7 +2089,7 @@ function celebrate() {
 .progress-bar {
   width: 100%;
   height: 12px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 10px;
@@ -2117,7 +2122,7 @@ function celebrate() {
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.85rem;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   transition: all 0.3s;
 }
 
@@ -2137,7 +2142,7 @@ function celebrate() {
 }
 
 .draw-order-item .order-num {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -2156,8 +2161,15 @@ function celebrate() {
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
 }
 
 /* 分享模態框 */
@@ -2248,266 +2260,49 @@ function celebrate() {
     grid-template-columns: 1fr;
     gap: 10px;
   }
-  
+
   .share-option-btn {
     padding: 15px;
   }
-  
+
   .social-buttons {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-/* 慶祝畫面樣式 */
-.celebration-container {
-  min-height: 100vh;
-  padding: 40px 20px;
+/* 完成階段加載樣式 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  position: relative;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
 }
 
-.celebration-banner {
+.loading-content {
   text-align: center;
-  margin-bottom: 40px;
-  animation: slideDown 0.6s ease-out;
-}
-
-.celebration-title {
-  font-size: 2.5rem;
   color: #fff;
-  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  margin: 20px 0;
-  font-weight: 800;
-  letter-spacing: 2px;
 }
 
-.confetti-animation {
-  font-size: 3rem;
-  display: inline-block;
+.loading-content .loading-spinner {
+  font-size: 5rem;
   animation: bounce 1s infinite ease-in-out;
+  margin-bottom: 20px;
+}
+
+.loading-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
 @keyframes bounce {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   25% { transform: translateY(-20px) rotate(-10deg); }
   75% { transform: translateY(-15px) rotate(10deg); }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-50px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.result-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
-  max-width: 1400px;
-  margin: 0 auto 40px;
-  padding: 0 10px;
-}
-
-.result-card {
-  position: relative;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: fadeInUp 0.6s ease-out backwards;
-}
-
-.result-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
-}
-
-.result-card.highlight-card {
-  border: 3px solid #ffd700;
-  background: linear-gradient(135deg, #fffacd 0%, #fff8dc 100%);
-  box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.card-badge {
-  position: absolute;
-  top: -12px;
-  left: -12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.3rem;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
-  border: 3px solid #fff;
-}
-
-.card-body {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.player-section {
-  flex: 1;
-  text-align: center;
-  padding: 12px;
-  border-radius: 12px;
-  transition: all 0.3s;
-}
-
-.drawer-section {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-}
-
-.gift-section {
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-}
-
-.player-avatar, .gift-icon {
-  font-size: 3rem;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-}
-
-.player-name {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 4px;
-  word-break: break-word;
-}
-
-.player-label {
-  font-size: 0.85rem;
-  color: #666;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.arrow-icon {
-  font-size: 2.5rem;
-  color: #667eea;
-  animation: pulse 2s infinite;
-  flex-shrink: 0;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.2); opacity: 0.8; }
-}
-
-.celebration-actions {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-.celebration-btn {
-  padding: 16px 32px;
-  font-size: 1.1rem;
-  border-radius: 16px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-  min-width: 180px;
-  justify-content: center;
-}
-
-.celebration-btn:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.celebration-btn:active {
-  transform: translateY(-2px);
-}
-
-.primary-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-}
-
-.restart-btn {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: #fff;
-}
-
-.leave-btn {
-  background: rgba(255, 255, 255, 0.95);
-  color: #667eea;
-  border: 2px solid #667eea;
-}
-
-.btn-icon {
-  font-size: 1.4rem;
-}
-
-.btn-text {
-  font-size: 1.1rem;
-}
-
-@media (max-width: 768px) {
-  .celebration-title {
-    font-size: 2rem;
-  }
-  
-  .result-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .card-body {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .arrow-icon {
-    transform: rotate(90deg);
-    font-size: 2rem;
-  }
-  
-  .celebration-actions {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .celebration-btn {
-    width: 100%;
-    min-width: auto;
-  }
 }
 </style>

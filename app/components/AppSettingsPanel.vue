@@ -63,9 +63,22 @@
       </div>
     </div>
 
+    <!-- 語言設定 -->
+    <div v-if="activeTab === 'language'" class="settings-section">
+      <h4>🌐 語言設定</h4>
+      <div class="settings-item">
+        <label>選擇語言</label>
+        <p class="hint">切換應用程式顯示語言</p>
+        <div class="language-selector">
+          <LanguageSwitcher />
+        </div>
+      </div>
+    </div>
+
     <!-- 主題設定 -->
     <div v-if="activeTab === 'theme'" class="settings-section">
       <SettingsPanel 
+        :disabled="readonly"
         @close="$emit('close')" 
         @saved="$emit('saved')" 
         @needsRefresh="$emit('needsRefresh')" 
@@ -79,7 +92,7 @@
       <div class="settings-item">
         <label>清理瀏覽器緩存</label>
         <p class="hint">清除本地儲存的遊戲資料和設定</p>
-        <button class="btn btn-warning" @click="clearCache">
+        <button class="btn btn-warning" @click="clearCache" :disabled="readonly">
           🗑️ 清理緩存
         </button>
       </div>
@@ -87,7 +100,7 @@
       <div class="settings-item">
         <label>恢復預設主題與設定</label>
         <p class="hint">將主題和所有設定恢復為預設值</p>
-        <button class="btn btn-secondary" @click="resetSettings">
+        <button class="btn btn-secondary" @click="resetSettings" :disabled="readonly">
           🔄 恢復預設
         </button>
       </div>
@@ -95,7 +108,7 @@
       <div class="settings-item">
         <label>重設管理員密碼</label>
         <p class="hint">重設用於進階選項的管理員密碼</p>
-        <button class="btn btn-secondary" @click="showResetPasswordModal = true">
+        <button class="btn btn-secondary" @click="showResetPasswordModal = true" :disabled="readonly">
           🔐 重設密碼
         </button>
       </div>
@@ -223,10 +236,15 @@
 </template>
 
 <script setup lang="ts">
+const props = defineProps<{
+  readonly?: boolean
+}>()
+
 const emit = defineEmits(['close', 'saved', 'needsRefresh'])
 
 const tabs = [
   { id: 'general', icon: '👤', label: '一般' },
+  { id: 'language', icon: '🌐', label: '語言' },
   { id: 'theme', icon: '🎨', label: '主題' },
   { id: 'data', icon: '🗂️', label: '資料' },
   { id: 'about', icon: 'ℹ️', label: '關於' }
@@ -252,7 +270,7 @@ const newAdminPassword = ref('')
 const confirmAdminPassword = ref('')
 
 // 應用資訊
-const appVersion = '0.3.1'
+const appVersion = '0.6.0'
 const buildNumber = computed(() => {
   const date = new Date()
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
@@ -367,8 +385,9 @@ onMounted(() => {
 
 <style scoped>
 .app-settings-panel {
+  display: flex;
+  flex-direction: column;
   max-height: 70vh;
-  overflow-y: auto;
 }
 
 .settings-tabs {
@@ -403,6 +422,8 @@ onMounted(() => {
 
 .settings-section {
   padding: 10px 0;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .settings-section h4 {
@@ -631,6 +652,26 @@ onMounted(() => {
   background: rgba(255, 193, 7, 0.3);
   border: 1px solid rgba(255, 193, 7, 0.5);
   color: #fff;
+}
+
+/* 只讀模式提示 */
+.readonly-notice {
+  background: rgba(255, 193, 7, 0.15);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 15px 20px;
+  text-align: center;
+  color: #ffc107;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* 語言選擇器容器 */
+.language-selector {
+  display: flex;
+  justify-content: center;
+  padding: 15px 0;
 }
 
 .btn-warning:hover {

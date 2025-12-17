@@ -8,8 +8,8 @@ export default {
   locale: 'zh-HK',
   fallbackLocale: 'zh-HK',
   messages: {
-    'zh-HK': () => import('./locales/zh-HK.json'),
-    'en': () => import('./locales/en.json')
+    'zh-HK': () => import('./i18n/locales/zh-HK.json'),
+    'en': () => import('./i18n/locales/en.json')
   },
   detectBrowserLanguage: {
     useCookie: true,

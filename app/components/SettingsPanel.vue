@@ -4,19 +4,19 @@
       <h4>📝 網站標題</h4>
       <div class="setting-row">
         <label>左側圖示</label>
-        <input type="text" v-model="localSettings.siteIconLeft" class="input input-small" maxlength="4" />
+        <input type="text" v-model="localSettings.siteIconLeft" class="input input-small" maxlength="4" :disabled="disabled" />
       </div>
       <div class="setting-row">
         <label>標題</label>
-        <input type="text" v-model="localSettings.siteTitle" class="input" />
+        <input type="text" v-model="localSettings.siteTitle" class="input" :disabled="disabled" />
       </div>
       <div class="setting-row">
         <label>右側圖示</label>
-        <input type="text" v-model="localSettings.siteIconRight" class="input input-small" maxlength="4" />
+        <input type="text" v-model="localSettings.siteIconRight" class="input input-small" maxlength="4" :disabled="disabled" />
       </div>
       <div class="setting-row">
         <label>副標題</label>
-        <input type="text" v-model="localSettings.siteSubtitle" class="input" />
+        <input type="text" v-model="localSettings.siteSubtitle" class="input" :disabled="disabled" />
       </div>
     </div>
     
@@ -25,22 +25,22 @@
       <div class="color-grid">
         <div class="color-item">
           <label>主色調</label>
-          <input type="color" v-model="localSettings.themePrimary" />
+          <input type="color" v-model="localSettings.themePrimary" :disabled="disabled" />
           <span class="color-code">{{ localSettings.themePrimary }}</span>
         </div>
         <div class="color-item">
           <label>輔助色</label>
-          <input type="color" v-model="localSettings.themeSecondary" />
+          <input type="color" v-model="localSettings.themeSecondary" :disabled="disabled" />
           <span class="color-code">{{ localSettings.themeSecondary }}</span>
         </div>
         <div class="color-item">
           <label>背景起始</label>
-          <input type="color" v-model="localSettings.themeBgFrom" />
+          <input type="color" v-model="localSettings.themeBgFrom" :disabled="disabled" />
           <span class="color-code">{{ localSettings.themeBgFrom }}</span>
         </div>
         <div class="color-item">
           <label>背景結束</label>
-          <input type="color" v-model="localSettings.themeBgTo" />
+          <input type="color" v-model="localSettings.themeBgTo" :disabled="disabled" />
           <span class="color-code">{{ localSettings.themeBgTo }}</span>
         </div>
       </div>
@@ -54,6 +54,7 @@
           class="toggle-btn" 
           :class="{ active: localSettings.showSnowflakes }"
           @click="localSettings.showSnowflakes = !localSettings.showSnowflakes"
+          :disabled="disabled"
         >
           {{ localSettings.showSnowflakes ? '開啟' : '關閉' }}
         </button>
@@ -77,6 +78,10 @@
 </template>
 
 <script setup lang="ts">
+const props = defineProps<{
+  disabled?: boolean
+}>()
+
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'saved'): void

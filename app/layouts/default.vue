@@ -3,15 +3,44 @@
     <!-- 雪花背景 -->
     <div v-if="settings.showSnowflakes" class="snowflakes" ref="snowflakesRef"></div>
     
+    <!-- 全域設定按鈕（固定在右上角） -->
+    <button class="settings-fab" @click="showAppSettingsModal = true" title="設定">
+      ⚙️
+    </button>
+    
     <div class="container">
       <slot />
+    </div>
+
+    <!-- 全域設定面板 -->
+    <div class="modal-overlay" v-if="showAppSettingsModal" @click.self="showAppSettingsModal = false">
+      <div class="modal-content settings-modal">
+        <div class="modal-header">
+          <h3>⚙️ 設定</h3>
+          <button class="modal-close" @click="showAppSettingsModal = false">✕</button>
+        </div>
+        <AppSettingsPanel 
+          :readonly="isInGame"
+          @close="showAppSettingsModal = false" 
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import AppSettingsPanel from '~/components/AppSettingsPanel.vue'
+
+const route = useRoute()
 const { settings, themeStyle, initSettings } = useDynamicConfig()
 const snowflakesRef = ref<HTMLElement | null>(null)
+const showAppSettingsModal = ref(false)
+
+// 檢測是否在遊戲進行中（solo 或 online 頁面）
+const isInGame = computed(() => {
+  const path = route.path
+  return path === '/solo' || path === '/online'
+})
 
 onMounted(() => {
   initSettings()
@@ -44,10 +73,14 @@ function createSnowflakes() {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 body {
   font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   min-height: 100vh;
   color: #fff;
   overflow-x: hidden;
@@ -86,11 +119,18 @@ body {
 }
 
 .container {
-  max-width: 900px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 20px;
   position: relative;
-  z-index: 1;
+  z-index: 1;  
+}
+
+@media (max-width: 1366px) {
+  .container {
+    aspect-ratio: auto;
+    max-height: none;
+  }
 }
 
 /* 卡片 */
@@ -256,6 +296,92 @@ header h1 {
   font-size: 2.5rem;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
   margin-bottom: 10px;
+}
+
+/* 全域設定按鈕 */
+.settings-fab {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  font-size: 1.8rem;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-fab:hover {
+  transform: scale(1.1) rotate(90deg);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.settings-fab:active {
+  transform: scale(0.95) rotate(90deg);
+}
+
+.settings-modal {
+  max-width: 700px;
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  background: linear-gradient(135deg, #2d5a3f, #1a472a);
+  z-index: 10;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s;
+  opacity: 0.7;
+}
+
+.modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .settings-fab {
+    width: 48px;
+    height: 48px;
+    font-size: 1.5rem;
+    top: 15px;
+    right: 15px;
+  }
 }
 
 header p {

@@ -13,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-const { locale, locales } = useI18n()
+const { locale, locales, setLocale } = useI18n()
 
 const currentLocale = computed(() => locale.value)
 
@@ -26,8 +26,12 @@ const availableLocales = computed(() => {
   }))
 })
 
-function switchLocale(newLocale: string) {
-  locale.value = newLocale
+async function switchLocale(newLocale: string) {
+  await setLocale(newLocale)
+  // 確保 cookie 持久化
+  if (process.client) {
+    document.cookie = `i18n_locale=${newLocale};path=/;max-age=31536000`
+  }
 }
 </script>
 
