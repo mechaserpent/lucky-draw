@@ -253,7 +253,7 @@ async function handleShareImage() {
     } else {
       // 失敗時下載圖片
       downloadImage(blob, `交換禮物結果_${resultData.value.seed}.png`)
-      showToastMessage('圖片已下載！')
+      showToastMessage('下載完成！')
       showShareModal.value = false
     }
   }
