@@ -157,10 +157,13 @@ function resetToDefault() {
 }
 
 function saveAndClose() {
+  // 檢查雪花設定是否改變（必須在 updateSettings 之前）
   const snowflakeChanged = localSettings.showSnowflakes !== settings.value.showSnowflakes
+  
   updateSettings({ ...localSettings })
   emit('saved')
   emit('close')
+  
   // 如果雪花設定改變，提示用戶重新整理
   if (snowflakeChanged) {
     emit('needsRefresh')
