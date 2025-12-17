@@ -22,3 +22,23 @@ logs
 .env
 .env.*
 !.env.example
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Package lock files (users should regenerate)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+ehthumbs.db

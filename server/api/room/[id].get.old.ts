@@ -1,9 +1,7 @@
-/**
- * 房間查詢 API - 支援資料庫
- */
-import { getRoom } from '~~/server/services/roomService'
+// 檢查房間是否存在
+import { getRoom } from '~~/server/utils/room'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler((event) => {
   const roomId = getRouterParam(event, 'id')?.toUpperCase()
   
   if (!roomId) {
@@ -13,7 +11,7 @@ export default defineEventHandler(async (event) => {
     }
   }
   
-  const room = await getRoom(roomId)
+  const room = getRoom(roomId)
   
   if (!room) {
     return {
@@ -27,9 +25,7 @@ export default defineEventHandler(async (event) => {
     exists: true,
     roomId: room.id,
     playerCount: room.players.length,
-    spectatorCount: room.spectators.length,
-    maxPlayers: room.settings.maxPlayers,
-    allowSpectators: room.settings.allowSpectators,
+    maxPlayers: room.maxPlayers,
     gameState: room.gameState
   }
 })

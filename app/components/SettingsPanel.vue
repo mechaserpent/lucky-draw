@@ -63,8 +63,7 @@
     <div class="settings-section">
       <h4>🎭 快速主題</h4>
       <div class="theme-presets">
-        <button class="preset-btn christmas" @click="applyPreset('christmas')">🎄 聖誕節</button>
-        <button class="preset-btn valentine" @click="applyPreset('valentine')">💕 情人節</button>
+        <button class="preset-btn christmas" @click="applyPreset('christmas')">🎄 聖誕節</button>        
         <button class="preset-btn newyear" @click="applyPreset('newyear')">🧧 新年</button>
         <button class="preset-btn party" @click="applyPreset('party')">🎉 派對</button>
       </div>
@@ -111,18 +110,7 @@ const presets = {
     themeBgFrom: '#1a472a',
     themeBgTo: '#2d1f1f',
     showSnowflakes: true,
-  },
-  valentine: {
-    siteTitle: '情人節交換禮物',
-    siteSubtitle: '甜蜜抽獎時間！',
-    siteIconLeft: '💕',
-    siteIconRight: '🎀',
-    themePrimary: '#e91e63',
-    themeSecondary: '#ff4081',
-    themeBgFrom: '#2d1f2d',
-    themeBgTo: '#1a1a2e',
-    showSnowflakes: false,
-  },
+  },  
   newyear: {
     siteTitle: '新年交換禮物',
     siteSubtitle: '新年快樂！一起來抽禮物吧！',

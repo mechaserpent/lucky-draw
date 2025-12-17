@@ -1,59 +1,63 @@
-// WebSocket 連線管理
-export interface RoomState {
-  id: string
-  hostId: string
-  players: RoomPlayer[]
-  gameState: 'waiting' | 'playing' | 'complete'
-  maxPlayers: number
-  seed: number
-  drawSequence: Record<number, number>
-  drawOrder: number[]
-  currentIndex: number
-  results: DrawResult[]
-}
+/**
+ * WebSocket 連線管理 - 支援新功能
+ * 
+ * 功能：
+ * - 房間管理
+ * - 觀眾模式
+ * - 斷線重連
+ * - 抽獎設定
+ */
 
-export interface RoomPlayer {
-  id: string
-  name: string
-  participantId: number
-  isHost: boolean
-  isReady: boolean
-}
+import type { RoomState, RoomPlayer, RoomSettings, DrawResult, ReconnectInfo } from '../../shared/types'
 
-export interface DrawResult {
-  order: number
-  drawerId: number
-  giftOwnerId: number
-}
+export type { RoomState, RoomPlayer, RoomSettings, DrawResult }
 
 export interface WSMessage {
   type: string
   payload?: any
 }
 
+// 重連資訊儲存 key
+const RECONNECT_STORAGE_KEY = 'lucky-draw-reconnect'
+
 export function useWebSocket() {
   const ws = useState<WebSocket | null>('ws', () => null)
   const isConnected = useState('wsConnected', () => false)
   const playerId = useState('playerId', () => '')
   const roomState = useState<RoomState | null>('roomState', () => null)
+  const myRole = useState<'player' | 'spectator'>('myRole', () => 'player')
   const error = useState<string | null>('wsError', () => null)
   
-  // 事件處理器
-  const eventHandlers = new Map<string, Function[]>()
+  // 事件處理器（使用 useState 確保跨組件共享）
+  const eventHandlers = useState<Map<string, Function[]>>('wsEventHandlers', () => new Map())
   
   function on(event: string, handler: Function) {
-    if (!eventHandlers.has(event)) {
-      eventHandlers.set(event, [])
+    if (!eventHandlers.value.has(event)) {
+      eventHandlers.value.set(event, [])
     }
-    eventHandlers.get(event)!.push(handler)
+    eventHandlers.value.get(event)!.push(handler)
+  }
+  
+  function off(event: string, handler?: Function) {
+    if (!handler) {
+      eventHandlers.value.delete(event)
+    } else {
+      const handlers = eventHandlers.value.get(event)
+      if (handlers) {
+        const idx = handlers.indexOf(handler)
+        if (idx > -1) handlers.splice(idx, 1)
+      }
+    }
   }
   
   function emit(event: string, data?: any) {
-    const handlers = eventHandlers.get(event)
+    const handlers = eventHandlers.value.get(event)
     if (handlers) {
       handlers.forEach(h => h(data))
     }
   }
+  
+  // ==================== 連線管理 ====================
   
   function connect() {
     if (ws.value?.readyState === WebSocket.OPEN) return
@@ -67,6 +71,9 @@ export function useWebSocket() {
       isConnected.value = true
       error.value = null
       console.log('WebSocket connected')
+      
+      // 嘗試自動重連
+      tryAutoReconnect()
     }
     
     ws.value.onclose = () => {
@@ -102,17 +109,98 @@ export function useWebSocket() {
     }
   }
   
+  // ==================== 重連管理 ====================
+  
+  function saveReconnectInfo(info: ReconnectInfo) {
+    try {
+      localStorage.setItem(RECONNECT_STORAGE_KEY, JSON.stringify(info))
+    } catch (e) {
+      console.error('Failed to save reconnect info:', e)
+    }
+  }
+  
+  function getReconnectInfo(): ReconnectInfo | null {
+    try {
+      const data = localStorage.getItem(RECONNECT_STORAGE_KEY)
+      if (!data) return null
+      
+      const info: ReconnectInfo = JSON.parse(data)
+      
+      // 檢查是否過期（24 小時）
+      if (info.expiresAt < Date.now()) {
+        clearReconnectInfo()
+        return null
+      }
+      
+      return info
+    } catch (e) {
+      return null
+    }
+  }
+  
+  function clearReconnectInfo() {
+    try {
+      localStorage.removeItem(RECONNECT_STORAGE_KEY)
+    } catch (e) {
+      console.error('Failed to clear reconnect info:', e)
+    }
+  }
+  
+  function tryAutoReconnect() {
+    const info = getReconnectInfo()
+    if (!info) return
+    
+    console.log('Attempting auto-reconnect to room:', info.roomId)
+    
+    send({
+      type: 'reconnect',
+      payload: {
+        roomId: info.roomId,
+        reconnectToken: info.reconnectToken
+      }
+    })
+  }
+  
+  // ==================== 訊息處理 ====================
+  
   function handleMessage(msg: WSMessage) {
     console.log('WS Message:', msg.type, msg.payload)
     
     switch (msg.type) {
       case 'connected':
-        playerId.value = msg.payload.playerId
+        playerId.value = msg.payload.playerId || msg.payload.odId
+        break
+        
+      case 'reconnect_token':
+        // 儲存重連資訊
+        saveReconnectInfo({
+          roomId: msg.payload.roomId,
+          odId: msg.payload.odId,
+          reconnectToken: msg.payload.reconnectToken,
+          playerName: roomState.value?.players.find(p => p.id === playerId.value)?.name || '',
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 小時後過期
+        })
         break
         
       case 'room_created':
       case 'room_joined':
+        roomState.value = msg.payload.room
+        if (msg.payload.role) {
+          myRole.value = msg.payload.role
+        }
+        emit('roomJoined', roomState.value)
+        emit('roomUpdated', roomState.value) // 同時觸發 roomUpdated 確保相容性
+        break
+        
+      case 'reconnect_success':
+        roomState.value = msg.payload.room
+        const reconnectedPlayer = msg.payload.player
+        myRole.value = reconnectedPlayer?.role || 'player'
+        emit('reconnectSuccess', { room: roomState.value, player: reconnectedPlayer })
+        break
+        
       case 'room_updated':
+      case 'settings_updated':
         roomState.value = msg.payload.room
         emit('roomUpdated', roomState.value)
         break
@@ -144,12 +232,39 @@ export function useWebSocket() {
       
       case 'room_disbanded':
         roomState.value = null
+        clearReconnectInfo()
         emit('roomDisbanded', msg.payload.message)
         break
         
       case 'player_left':
         roomState.value = msg.payload.room
-        emit('playerLeft', msg.payload.playerId)
+        emit('playerLeft', msg.payload.playerId || msg.payload.odId)
+        break
+        
+      case 'player_disconnected':
+        roomState.value = msg.payload.room
+        emit('playerDisconnected', {
+          playerId: msg.payload.odId,
+          isHost: msg.payload.isHost,
+          hostTransferred: msg.payload.hostTransferred,
+          newHostId: msg.payload.newHostId
+        })
+        break
+        
+      case 'player_reconnected':
+        roomState.value = msg.payload.room
+        emit('playerReconnected', {
+          playerId: msg.payload.odId,
+          playerName: msg.payload.playerName
+        })
+        break
+        
+      case 'player_converted_to_spectator':
+        roomState.value = msg.payload.room
+        if (msg.payload.odId === playerId.value) {
+          myRole.value = 'spectator'
+        }
+        emit('playerConvertedToSpectator', msg.payload.odId)
         break
         
       case 'error':
@@ -159,24 +274,42 @@ export function useWebSocket() {
     }
   }
   
-  // 房間操作
-  function createRoom(hostName: string, maxPlayers: number) {
+  // ==================== 房間操作 ====================
+  
+  function createRoom(hostName: string, settings?: Partial<RoomSettings>) {
     send({
       type: 'create_room',
-      payload: { hostName, maxPlayers }
+      payload: { hostName, settings }
     })
   }
   
-  function joinRoom(roomId: string, playerName: string) {
+  function joinRoom(roomId: string, playerName: string, asSpectator: boolean = false) {
     send({
       type: 'join_room',
-      payload: { roomId, playerName }
+      payload: { roomId, playerName, asSpectator }
     })
   }
   
   function leaveRoom() {
     send({ type: 'leave_room' })
     roomState.value = null
+    clearReconnectInfo()
+  }
+  
+  function reconnect(roomId: string, reconnectToken: string) {
+    send({
+      type: 'reconnect',
+      payload: { roomId, reconnectToken }
+    })
+  }
+  
+  // ==================== 設定操作 ====================
+  
+  function updateSettings(settings: Partial<RoomSettings>) {
+    send({
+      type: 'update_settings',
+      payload: { settings }
+    })
   }
   
   function setReady(ready: boolean) {
@@ -185,6 +318,22 @@ export function useWebSocket() {
       payload: { ready }
     })
   }
+  
+  function renamePlayer(newName: string) {
+    send({
+      type: 'rename_player',
+      payload: { newName }
+    })
+  }
+  
+  function convertToSpectator(targetPlayerId?: string) {
+    send({
+      type: 'convert_to_spectator',
+      payload: { targetPlayerId: targetPlayerId || playerId.value }
+    })
+  }
+  
+  // ==================== 遊戲操作 ====================
   
   function startGame(seed?: number) {
     send({
@@ -208,45 +357,96 @@ export function useWebSocket() {
     send({ type: 'next_drawer' })
   }
   
-  // 獲取當前玩家
-  function getCurrentPlayer() {
-    if (!roomState.value || !playerId.value) return null
-    return roomState.value.players.find(p => p.id === playerId.value)
+  function restartGame() {
+    send({ type: 'restart_game' })
   }
   
-  // 是否是當前抽獎者
-  function isCurrentDrawer() {
+  function hostAddPlayer(playerName: string) {
+    send({
+      type: 'host_add_player',
+      payload: { playerName }
+    })
+  }
+  
+  // ==================== 工具函數 ====================
+  
+  function getCurrentPlayer(): RoomPlayer | null {
+    if (!roomState.value || !playerId.value) return null
+    return [...roomState.value.players, ...roomState.value.spectators]
+      .find(p => p.id === playerId.value) || null
+  }
+  
+  function isCurrentDrawer(): boolean {
     if (!roomState.value || !playerId.value) return false
     const currentDrawerId = roomState.value.drawOrder[roomState.value.currentIndex]
     const player = roomState.value.players.find(p => p.id === playerId.value)
     return player?.participantId === currentDrawerId
   }
   
-  // 是否是主機
-  function isHost() {
+  function isHost(): boolean {
     return getCurrentPlayer()?.isHost ?? false
   }
   
+  function isSpectator(): boolean {
+    return myRole.value === 'spectator'
+  }
+  
+  function getPlayerName(participantId: number): string {
+    if (!roomState.value) return '?'
+    const player = roomState.value.players.find(p => p.participantId === participantId)
+    return player?.name || '?'
+  }
+  
+  function hasReconnectInfo(): boolean {
+    return getReconnectInfo() !== null
+  }
+  
   return {
+    // 狀態
     ws,
     isConnected,
     playerId,
     roomState,
+    myRole,
     error,
+    
+    // 連線管理
     connect,
     disconnect,
     send,
     on,
+    off,
+    
+    // 重連
+    hasReconnectInfo,
+    getReconnectInfo,
+    clearReconnectInfo,
+    reconnect,
+    
+    // 房間操作
     createRoom,
     joinRoom,
     leaveRoom,
+    
+    // 設定操作
+    updateSettings,
     setReady,
+    renamePlayer,
+    convertToSpectator,
+    
+    // 遊戲操作
     startGame,
     performDraw,
     hostPerformDraw,
     nextDrawer,
+    restartGame,
+    hostAddPlayer,
+    
+    // 工具函數
     getCurrentPlayer,
     isCurrentDrawer,
-    isHost
+    isHost,
+    isSpectator,
+    getPlayerName
   }
 }

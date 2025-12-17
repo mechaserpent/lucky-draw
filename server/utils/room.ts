@@ -255,6 +255,14 @@ export function performDraw(roomId: string, participantId?: number): { room: Roo
     return null
   }
 
+  // 檢查當前抽獎者是否已經抽過（防止重複抽獎）
+  const alreadyDrawn = room.results.some(r => r.order === room.currentIndex + 1)
+  if (alreadyDrawn) {
+    // 已經抽過，返回現有結果而不是新增
+    const existingResult = room.results.find(r => r.order === room.currentIndex + 1)!
+    return { room, result: existingResult }
+  }
+
   const giftOwnerId = room.drawSequence[currentDrawerId]
 
   const result: DrawResult = {

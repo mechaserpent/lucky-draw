@@ -1,5 +1,10 @@
 <template>
   <div>
+    <!-- 設定按鈕（固定在右上角） -->
+    <button class="settings-fab" @click="showAppSettingsModal = true" title="設定">
+      ⚙️
+    </button>
+
     <header>
       <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{ dynamicConfig.settings.value.siteIconRight }}</h1>
       <p>{{ dynamicConfig.settings.value.siteSubtitle }}</p>
@@ -11,7 +16,7 @@
       <div class="mode-grid">
         <div class="mode-card" @click="showSoloModal = true">
           <div class="mode-icon">🖥️</div>
-          <h3>單機模式</h3>
+          <h3>主持模式</h3>
           <p>由主持人操作所有抽獎流程，適合投影到大螢幕</p>
         </div>
         
@@ -23,19 +28,85 @@
       </div>
     </div>
 
-    <div class="card" style="text-align: center;">
+    <div class="card privacy-info" style="text-align: center;">
       <p style="opacity: 0.7; font-size: 0.9rem;">
-        🔒 所有資料僅存在本地瀏覽器，不會上傳到任何伺服器
+        🔒 <strong>主持模式</strong>：資料僅存在本地瀏覽器
       </p>
-      <button class="btn btn-link" @click="showSettingsModal = true">
-        ⚙️ 自訂主題設定
-      </button>
+      <p style="opacity: 0.7; font-size: 0.9rem;">
+        🌐 <strong>連線模式</strong>：房間資料暫存於伺服器，關閉後 30 分鐘自動清除
+      </p>
     </div>
 
-    <!-- 單機模式彈窗 -->
+    <!-- 歷史紀錄 -->
+    <div class="card" v-if="historyRecords.length > 0">
+      <div class="history-header">
+        <h2>📜 先前紀錄</h2>
+        <button class="btn btn-sm btn-danger" @click="showClearHistoryConfirm = true">
+          🗑️ 清除全部
+        </button>
+      </div>
+      
+      <div class="history-list">
+        <div 
+          v-for="record in historyRecords.slice(0, showAllHistory ? undefined : 5)" 
+          :key="record.id"
+          class="history-item"
+          @click="toggleHistoryExpand(record.id)"
+        >
+          <div class="history-summary">
+            <span class="history-mode">{{ record.mode === 'solo' ? '🖥️' : '🌐' }}</span>
+            <span class="history-info">
+              {{ record.participantCount }} 人 · {{ formatHistoryTime(record.timestamp) }}
+            </span>
+            <span class="history-expand">{{ expandedHistory === record.id ? '▼' : '▶' }}</span>
+          </div>
+          
+          <div v-if="expandedHistory === record.id" class="history-details">
+            <div class="history-results">
+              <div v-for="r in record.results" :key="r.order" class="history-result-item">
+                {{ r.order }}. {{ r.drawerName }} ➡️ {{ r.giftOwnerName }}
+              </div>
+            </div>
+            <div class="history-seed">🎲 Seed: {{ record.seed }}</div>
+          </div>
+        </div>
+        
+        <button 
+          v-if="historyRecords.length > 5 && !showAllHistory" 
+          class="btn btn-sm btn-secondary" 
+          style="width: 100%; margin-top: 10px;"
+          @click.stop="showAllHistory = true"
+        >
+          顯示更多 ({{ historyRecords.length - 5 }} 筆)
+        </button>
+        
+        <button 
+          v-if="showAllHistory && historyRecords.length > 5" 
+          class="btn btn-sm btn-secondary" 
+          style="width: 100%; margin-top: 10px;"
+          @click.stop="showAllHistory = false"
+        >
+          收起
+        </button>
+      </div>
+    </div>
+
+    <!-- 清除歷史確認彈窗 -->
+    <div class="modal-overlay" v-if="showClearHistoryConfirm" @click.self="showClearHistoryConfirm = false">
+      <div class="modal-content">
+        <h3>⚠️ 確認清除</h3>
+        <p style="margin: 15px 0;">確定要清除所有歷史紀錄嗎？此操作無法復原。</p>
+        <div class="modal-buttons">
+          <button class="btn btn-secondary" @click="showClearHistoryConfirm = false">取消</button>
+          <button class="btn btn-danger" @click="handleClearHistory">確認清除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主持模式彈窗 -->
     <div class="modal-overlay" v-if="showSoloModal" @click.self="showSoloModal = false">
       <div class="modal-content">
-        <h3>🖥️ 單機模式設定</h3>
+        <h3>🖥️ 主持模式設定</h3>
         
         <NumPad 
           v-model="soloPlayerCount"
@@ -108,7 +179,11 @@
     <!-- 加入房間彈窗 -->
     <div class="modal-overlay" v-if="showJoinRoomModal" @click.self="showJoinRoomModal = false">
       <div class="modal-content">
-        <h3>🚪 加入房間</h3>
+        <h3>{{ joinAsSpectator ? '👁️ 觀看房間' : '🚪 加入房間' }}</h3>
+        
+        <div v-if="joinAsSpectator" class="spectator-notice">
+          <p>👁️ 你將以觀眾身份加入，只能觀看不能參與抽獎</p>
+        </div>
         
         <div style="margin: 15px 0;">
           <label style="display: block; margin-bottom: 8px;">房間代碼</label>
@@ -129,13 +204,30 @@
         </div>
         
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showJoinRoomModal = false">取消</button>
-          <button class="btn btn-primary" @click="joinRoom">加入房間</button>
+          <button class="btn btn-secondary" @click="showJoinRoomModal = false; joinAsSpectator = false">取消</button>
+          <button class="btn btn-primary" @click="joinRoom">
+            {{ joinAsSpectator ? '👁️ 開始觀看' : '加入房間' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- 設定彈窗 -->
+    <!-- 應用設定彈窗 -->
+    <div class="modal-overlay" v-if="showAppSettingsModal" @click.self="showAppSettingsModal = false">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h3>⚙️ 設定</h3>
+          <button class="close-btn" @click="showAppSettingsModal = false">✕</button>
+        </div>
+        <AppSettingsPanel 
+          @close="showAppSettingsModal = false" 
+          @saved="onSettingsSaved" 
+          @needsRefresh="onNeedsRefresh" 
+        />
+      </div>
+    </div>
+
+    <!-- 舊版主題設定彈窗（保留兼容） -->
     <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
       <div class="modal-content modal-lg">
         <h3>⚙️ 主題設定</h3>
@@ -166,20 +258,34 @@ const route = useRoute()
 const dynamicConfig = useDynamicConfig()
 const { state, loadState, initGame, getPassword, setPassword } = useGameState()
 const { connect, createRoom: wsCreateRoom, joinRoom: wsJoinRoom, on, roomState, error } = useWebSocket()
+const { history: historyRecords, formatTime: formatHistoryTime, clearHistory } = useHistory()
+
+// 生成隨機用戶名稱
+function generateRandomUsername(): string {
+  const randomNum = Math.floor(1000 + Math.random() * 9000) // 1000-9999
+  return `用戶${randomNum}`
+}
 
 // 彈窗控制
 const showSoloModal = ref(false)
 const showOnlineModal = ref(false)
 const showCreateRoomModal = ref(false)
+const showAppSettingsModal = ref(false)
 const showJoinRoomModal = ref(false)
 const showSettingsModal = ref(false)
+const showClearHistoryConfirm = ref(false)
+
+// 歷史紀錄控制
+const showAllHistory = ref(false)
+const expandedHistory = ref<string | null>(null)
 
 // 表單數據
 const soloPlayerCount = ref(20)
-const hostName = ref('')
+const hostName = ref(generateRandomUsername())
 const maxPlayers = ref(20)
 const joinRoomId = ref('')
-const playerName = ref('')
+const playerName = ref(generateRandomUsername())
+const joinAsSpectator = ref(false)
 
 // 錯誤提示
 const errorMessage = ref('')
@@ -211,6 +317,8 @@ onMounted(async () => {
   
   // 檢查 URL 參數是否有房間代碼
   const roomCode = route.query.room as string
+  const isSpectator = route.query.spectator === 'true'
+  
   if (roomCode) {
     const code = roomCode.toUpperCase()
     isCheckingRoom.value = true
@@ -221,6 +329,7 @@ onMounted(async () => {
       
       if (response.exists) {
         joinRoomId.value = code
+        joinAsSpectator.value = isSpectator
         showJoinRoomModal.value = true
         // 延遲聚焦到名字輸入框
         setTimeout(() => {
@@ -248,7 +357,17 @@ function onNeedsRefresh() {
   showInfo('💡 部分效果需要重新整理頁面才能生效，請按 F5 或重新整理')
 }
 
-// 單機模式
+// 歷史紀錄操作
+function toggleHistoryExpand(id: string) {
+  expandedHistory.value = expandedHistory.value === id ? null : id
+}
+
+function handleClearHistory() {
+  clearHistory()
+  showClearHistoryConfirm.value = false
+}
+
+// 主持模式
 function startSoloMode() {
   const { fixedConfig } = dynamicConfig
   if (soloPlayerCount.value < fixedConfig.minPlayers || soloPlayerCount.value > fixedConfig.maxPlayers) {
@@ -277,7 +396,7 @@ function createRoom() {
   
   // 等待連接後建立房間
   setTimeout(() => {
-    wsCreateRoom(hostName.value.trim(), maxPlayers.value)
+    wsCreateRoom(hostName.value.trim(), { maxPlayers: maxPlayers.value })
   }, 500)
   
   // 監聽房間建立成功
@@ -303,12 +422,13 @@ function joinRoom() {
   connect()
   
   setTimeout(() => {
-    wsJoinRoom(joinRoomId.value.trim().toUpperCase(), playerName.value.trim())
+    wsJoinRoom(joinRoomId.value.trim().toUpperCase(), playerName.value.trim(), joinAsSpectator.value)
   }, 500)
   
   on('roomUpdated', () => {
     if (roomState.value) {
       showJoinRoomModal.value = false
+      joinAsSpectator.value = false // 重置
       router.push('/online')
     }
   })
@@ -361,6 +481,58 @@ function joinRoom() {
   margin: 20px 0;
 }
 
+/* 設定按鈕（FAB 風格） */
+.settings-fab {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.settings-fab:hover {
+  background: rgba(255,255,255,0.25);
+  transform: rotate(90deg);
+}
+
+/* Modal Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px 10px;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
 /* Toast 錯誤提示樣式 */
 .toast-error {
   position: fixed;
@@ -398,5 +570,101 @@ function joinRoom() {
 .toast-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(20px);
+}
+
+/* 觀眾提示 */
+.spectator-notice {
+  background: rgba(255, 193, 7, 0.2);
+  border: 1px solid rgba(255, 193, 7, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.spectator-notice p {
+  margin: 0;
+  color: #ffc107;
+  font-size: 0.9rem;
+}
+
+/* 歷史紀錄 */
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.history-header h2 {
+  margin: 0;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-item {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.history-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-mode {
+  font-size: 1.2rem;
+}
+
+.history-info {
+  flex: 1;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.history-expand {
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+
+.history-details {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.history-result-item {
+  padding: 4px 0;
+}
+
+.history-seed {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 </style>

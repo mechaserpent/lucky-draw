@@ -3,7 +3,7 @@
     <header>
       <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{ dynamicConfig.settings.value.siteIconRight }}</h1>
       <p>
-        <span class="mode-badge solo">🖥️ 單機模式</span>
+        <span class="mode-badge solo">🖥️ 主持模式</span>
         主持人控制
       </p>
     </header>
@@ -195,6 +195,37 @@
       </div>
     </template>
 
+    <!-- 進度側邊面板 -->
+    <div class="progress-panel" v-if="state.phase === 'drawing' || state.phase === 'complete'">
+      <h4>📊 抽獎進度</h4>
+      <div class="progress-bar">
+        <div 
+          class="progress-fill" 
+          :style="{ width: `${(state.results.length / state.participants.length) * 100}%` }"
+        ></div>
+      </div>
+      <div class="progress-text">
+        {{ state.results.length }} / {{ state.participants.length }}
+      </div>
+      <div class="player-status-list">
+        <div 
+          v-for="(p, idx) in state.participants" 
+          :key="p.id"
+          class="player-status-item"
+          :class="{ 
+            'is-current': state.drawOrder[state.currentIndex] === p.id,
+            'has-drawn': state.results.some(r => r.drawerId === p.id)
+          }"
+        >
+          <span class="status-icon">
+            {{ state.results.some(r => r.drawerId === p.id) ? '✅' : 
+               state.drawOrder[state.currentIndex] === p.id ? '🎯' : '⏳' }}
+          </span>
+          <span class="player-name">{{ idx + 1 }}. {{ p.name }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 完成階段 -->
     <template v-if="state.phase === 'complete'">
       <div class="card" style="text-align: center;">
@@ -219,6 +250,9 @@
       </div>
 
       <div class="controls">
+        <button class="btn btn-success" @click="shareResults">
+          📤 分享結果
+        </button>
         <button class="btn btn-danger" @click="showResetAllModal = true">
           🔄 重新開始新一輪
         </button>
@@ -345,6 +379,73 @@
       </div>
     </div>
 
+    <!-- 分享選單 -->
+    <div class="modal-overlay" v-if="showShareModal" @click.self="showShareModal = false">
+      <div class="modal-content share-modal">
+        <h3>📤 分享結果</h3>
+        
+        <div class="share-options">
+          <button class="share-option-btn" @click="handleShareText">
+            <span class="icon">📝</span>
+            <span class="text">文字版</span>
+          </button>
+          <button class="share-option-btn" @click="handleShareImage">
+            <span class="icon">🖼️</span>
+            <span class="text">圖片版</span>
+          </button>
+          <button class="share-option-btn" @click="handleDownloadImage">
+            <span class="icon">💾</span>
+            <span class="text">下載圖片</span>
+          </button>
+        </div>
+
+        <div class="social-share-section">
+          <p class="section-title">快速分享至：</p>
+          <div class="social-buttons">
+            <button class="social-share-btn" @click="shareToSocial('facebook')" title="Facebook">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </button>
+            <button class="social-share-btn" @click="shareToSocial('twitter')" title="X (Twitter)">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </button>
+            <button class="social-share-btn" @click="shareToSocial('threads')" title="Threads">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.019-5.093.896-6.48 2.608-1.37 1.693-2.061 4.163-2.053 7.34-.008 3.177.684 5.648 2.054 7.342 1.387 1.711 3.57 2.588 6.479 2.607 2.24-.02 4.077-.543 5.458-1.553 1.304-1.014 1.955-2.395 1.936-4.1-.015-1.255-.427-2.23-1.226-2.898-.797-.667-1.885-1.006-3.235-.998h-.011c-1.255 0-2.283.325-3.056.966-.776.643-1.169 1.515-1.169 2.591 0 .869.24 1.56.714 2.053.474.494 1.13.74 1.95.74.819 0 1.476-.246 1.95-.74.475-.494.714-1.184.714-2.053 0-.439-.12-.827-.36-1.153a2.074 2.074 0 0 0-.975-.655c.215-.465.569-.846 1.028-1.106.481-.273 1.046-.411 1.683-.411 1.313 0 2.381.428 3.173 1.273.793.845 1.189 2.007 1.189 3.458 0 2.095-.84 3.749-2.497 4.915-1.659 1.167-3.863 1.755-6.546 1.755z"/>
+              </svg>
+            </button>
+            <button class="social-share-btn" @click="shareToSocial('line')" title="LINE">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+              </svg>
+            </button>
+            <button class="social-share-btn" @click="shareToSocial('telegram')" title="Telegram">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+              </svg>
+            </button>
+            <button class="social-share-btn" @click="shareToSocial('whatsapp')" title="WhatsApp">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+              </svg>
+            </button>
+            <button class="social-share-btn" @click="copyShareLink" title="複製連結">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10.59 13.41c.41.39.41 1.03 0 1.42-.39.39-1.03.39-1.42 0a5.003 5.003 0 0 1 0-7.07l3.54-3.54a5.003 5.003 0 0 1 7.07 0 5.003 5.003 0 0 1 0 7.07l-1.49 1.49c.01-.82-.12-1.64-.4-2.42l.47-.48a2.982 2.982 0 0 0 0-4.24 2.982 2.982 0 0 0-4.24 0l-3.53 3.53a2.982 2.982 0 0 0 0 4.24zm2.82-4.24c.39-.39 1.03-.39 1.42 0a5.003 5.003 0 0 1 0 7.07l-3.54 3.54a5.003 5.003 0 0 1-7.07 0 5.003 5.003 0 0 1 0-7.07l1.49-1.49c-.01.82.12 1.64.4 2.43l-.47.47a2.982 2.982 0 0 0 0 4.24 2.982 2.982 0 0 0 4.24 0l3.53-3.53a2.982 2.982 0 0 0 0-4.24.973.973 0 0 1 0-1.42z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-buttons" style="margin-top: 20px;">
+          <button class="btn btn-secondary" @click="showShareModal = false">取消</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 首次使用設定密碼 -->
     <div class="modal-overlay" v-if="showPasswordSetup">
       <div class="modal-content">
@@ -385,6 +486,7 @@
 <script setup lang="ts">
 const router = useRouter()
 const dynamicConfig = useDynamicConfig()
+const { addRecord: addHistoryRecord } = useHistory()
 const { 
   state, 
   loadState, 
@@ -407,6 +509,8 @@ const {
   setPassword
 } = useGameState()
 
+const { generateResultImage, downloadImage, shareImage, getSocialShareLinks, copyImageToClipboard } = useShareImage()
+
 // 彈窗控制
 const showAdvancedModal = ref(false)
 const showResetSeedModal = ref(false)
@@ -415,6 +519,7 @@ const showClearCacheModal = ref(false)
 const showViewSettingsModal = ref(false)
 const showAdvanced = ref(false)
 const showPasswordSetup = ref(false)
+const showShareModal = ref(false)
 
 // 表單數據
 const newParticipantName = ref('')
@@ -616,6 +721,15 @@ function handlePerformDraw() {
       isDrawing.value = false
       showResult.value = true
       hasDrawnCurrent.value = true
+      
+      // 如果是最後一個人，自動觸發完成特效
+      if (state.value.currentIndex >= state.value.participants.length - 1) {
+        // 延遲一下讓結果先顯示
+        setTimeout(() => {
+          state.value.phase = 'complete'
+          celebrate()
+        }, 500)
+      }
     }
   }, 80)
 }
@@ -632,8 +746,124 @@ function handleNextDraw() {
   }
 }
 
+// 分享結果
+// 分享結果 - 打開分享選單
+async function shareResults() {
+  showShareModal.value = true
+}
+
+// 分享文字版
+async function handleShareText() {
+  // 產生文字結果
+  const lines = ['🎁 交換禮物抽籤結果 🎁', '']
+  state.value.results.forEach(r => {
+    const drawer = getParticipant(r.drawerId)?.name || '?'
+    const giftOwner = getParticipant(r.giftOwnerId)?.name || '?'
+    lines.push(`${r.order}. ${drawer} ➡️ ${giftOwner} 的禮物`)
+  })
+  lines.push('')
+  lines.push(`🎲 Seed: ${state.value.seed}`)
+  
+  const text = lines.join('\n')
+  
+  // 嘗試使用 Web Share API
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: '交換禮物抽籤結果',
+        text: text
+      })
+      showShareModal.value = false
+    } catch (e) {
+      // 使用者取消分享，不需處理
+    }
+  } else {
+    // 降級為複製到剪貼簿
+    await navigator.clipboard.writeText(text)
+    alert('結果已複製到剪貼簿！')
+    showShareModal.value = false
+  }
+}
+
+// 分享圖片版
+async function handleShareImage() {
+  const results = state.value.results.map(r => ({
+    order: r.order,
+    drawerName: getParticipant(r.drawerId)?.name || '?',
+    giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
+  }))
+  
+  const blob = await generateResultImage(results, state.value.seed, 'solo')
+  
+  if (blob) {
+    const success = await shareImage(
+      blob,
+      '交換禮物抽籤結果',
+      '🎁 看看我的交換禮物抽籤結果！'
+    )
+    
+    if (success) {
+      showShareModal.value = false
+    } else {
+      alert('分享失敗，請嘗試下載圖片')
+    }
+  }
+}
+
+// 下載圖片
+async function handleDownloadImage() {
+  const results = state.value.results.map(r => ({
+    order: r.order,
+    drawerName: getParticipant(r.drawerId)?.name || '?',
+    giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
+  }))
+  
+  const blob = await generateResultImage(results, state.value.seed, 'solo')
+  
+  if (blob) {
+    downloadImage(blob, `交換禮物結果_${state.value.seed}.png`)
+    alert('圖片已下載！')
+    showShareModal.value = false
+  }
+}
+
+// 分享到社交媒體
+async function shareToSocial(platform: string) {
+  const text = `🎁 交換禮物抽籤結果！Seed: ${state.value.seed}`
+  const url = window.location.href
+  const links = getSocialShareLinks(text, url)
+  
+  const socialUrl = links[platform]
+  if (socialUrl) {
+    window.open(socialUrl, '_blank', 'width=600,height=400')
+    showShareModal.value = false
+  }
+}
+
+// 複製分享連結
+async function copyShareLink() {
+  const url = window.location.href
+  await navigator.clipboard.writeText(url)
+  alert('連結已複製！')
+  showShareModal.value = false
+}
+
 // 慶祝動畫
 function celebrate() {
+  // 保存歷史紀錄
+  if (state.value.results.length > 0) {
+    addHistoryRecord({
+      mode: 'solo',
+      seed: state.value.seed,
+      participantCount: state.value.participants.length,
+      results: state.value.results.map(r => ({
+        order: r.order,
+        drawerName: getParticipant(r.drawerId)?.name || '?',
+        giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
+      }))
+    })
+  }
+  
   const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7']
   const container = document.createElement('div')
   container.className = 'celebration'
@@ -1040,6 +1270,191 @@ function celebrate() {
     width: 150px;
     height: 150px;
     font-size: 3rem;
+  }
+  
+  .progress-panel {
+    position: relative;
+    width: 100%;
+    right: auto;
+    top: auto;
+    margin: 20px 0;
+  }
+}
+
+/* 進度側邊面板 */
+.progress-panel {
+  position: fixed;
+  right: 20px;
+  top: 100px;
+  width: 200px;
+  background: rgba(0,0,0,0.8);
+  border-radius: 12px;
+  padding: 15px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  z-index: 100;
+}
+
+.progress-panel h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+}
+
+.progress-panel .progress-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-panel .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+  transition: width 0.5s ease;
+}
+
+.progress-panel .progress-text {
+  font-size: 0.85rem;
+  text-align: center;
+  margin-bottom: 10px;
+  opacity: 0.8;
+}
+
+.player-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.player-status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: rgba(255,255,255,0.05);
+  transition: all 0.3s;
+}
+
+.player-status-item.is-current {
+  background: rgba(255, 193, 7, 0.3);
+  border: 1px solid #ffc107;
+}
+
+.player-status-item.has-drawn {
+  opacity: 0.6;
+}
+
+.player-status-item .status-icon {
+  font-size: 0.9rem;
+}
+
+.player-status-item .player-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 分享模態框 */
+.share-modal {
+  max-width: 500px;
+}
+
+.share-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.share-option-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+.share-option-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+.share-option-btn .icon {
+  font-size: 2rem;
+}
+
+.share-option-btn .text {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.social-share-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 20px;
+  margin-top: 10px;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.social-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.social-share-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.social-share-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.social-share-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 600px) {
+  .share-options {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .share-option-btn {
+    padding: 15px;
+  }
+  
+  .social-buttons {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 </style>
