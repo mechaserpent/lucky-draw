@@ -44,7 +44,7 @@ Thumbs.db
 ehthumbs.db
 
 # Documentation
-docs/*
+# docs/*
 
 # Husky internal files (keep hooks)
 .husky/_

@@ -206,7 +206,9 @@
     "contactHost": "如需修改房間設定，請聯繫主持人",
     "scanQR": "掃描 QR Code 加入",
     "roomCreator": "房間創建者",
-    "currentHost": "當前主持人"
+    "currentHost": "當前主持人",
+    "reconnecting": "正在重新連線",
+    "deviceInRoom": "已偵測到你之前加入過此房間"
   },
   "game": {
     "waiting": "等待中",
@@ -246,11 +248,13 @@
     "preparing": "正在準備結果頁面...",
     "hostControl": "主持人控制",
     "nextDrawerLabel": "下一位抽獎者",
+    "yourTurn": "輪到你了",
     "preparingDraw": "準備中...",
     "startDraw": "開始抽獎",
     "drawing": "抽獎中...",
     "drawResult": "抽獎結果",
-    "viewResult": "查看結果"
+    "viewResult": "查看結果",
+    "waitingForNext": "等待進入下一位..."
   },
   "share": {
     "title": "分享結果",
@@ -358,6 +362,7 @@
     "cannotJoinRoom": "無法加入此房間",
     "roomNotExists": "房間 {code} 不存在或已解散",
     "cannotCheckRoom": "無法檢查房間狀態",
+    "reconnectFailed": "重連失敗，請重新加入房間",
     "playerCountRange": "人數須在 {min}-{max} 之間",
     "pleaseEnterName": "請輸入你的名字",
     "pleaseEnterRoomCode": "請輸入房間代碼",

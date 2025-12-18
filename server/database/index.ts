@@ -24,8 +24,12 @@ if (!existsSync(dbDir)) {
 // 建立 SQLite 連線
 const sqlite = new Database(DB_PATH);
 
-// 啟用 WAL 模式以提高並發性能
-sqlite.pragma("journal_mode = WAL");
+// 性能優化設定
+sqlite.pragma("journal_mode = WAL"); // 提高並發性能
+sqlite.pragma("synchronous = NORMAL"); // 平衡性能和安全性
+sqlite.pragma("cache_size = -64000"); // 64MB 緩存
+sqlite.pragma("temp_store = MEMORY"); // 臨時數據存在內存
+sqlite.pragma("mmap_size = 30000000000"); // 使用記憶體映射
 
 // 建立 Drizzle 實例
 export const db = drizzle(sqlite, { schema });
@@ -206,7 +210,7 @@ export function initDatabase() {
     )
   `);
 
-  // 建立索引
+  // 建立基本索引
   sqlite.exec(`
     CREATE INDEX IF NOT EXISTS idx_players_room_id ON players(room_id);
     CREATE INDEX IF NOT EXISTS idx_players_player_id ON players(player_id);
@@ -220,8 +224,35 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level);
   `);
 
+  // 🚀 性能優化索引（自動應用）
+  console.log("[DB] Applying performance optimization indexes...");
+  sqlite.exec(`
+    -- 玩家查詢優化（最常用的查詢模式）
+    CREATE INDEX IF NOT EXISTS idx_players_room_player ON players(room_id, player_id);
+    CREATE INDEX IF NOT EXISTS idx_players_room_role ON players(room_id, role);
+    CREATE INDEX IF NOT EXISTS idx_players_reconnect ON players(room_id, reconnect_token);
+    CREATE INDEX IF NOT EXISTS idx_players_device ON players(device_id) WHERE device_id IS NOT NULL;
+    
+    -- 房間查詢優化
+    CREATE INDEX IF NOT EXISTS idx_rooms_activity ON rooms(last_activity_at, game_state);
+    CREATE INDEX IF NOT EXISTS idx_rooms_creator ON rooms(creator_id);
+    CREATE INDEX IF NOT EXISTS idx_rooms_host ON rooms(host_id);
+    
+    -- 抽獎數據優化
+    CREATE INDEX IF NOT EXISTS idx_draw_sequences_room ON draw_sequences(room_id);
+    CREATE INDEX IF NOT EXISTS idx_draw_orders_room ON draw_orders(room_id, order_index);
+    CREATE INDEX IF NOT EXISTS idx_draw_results_room ON draw_results(room_id, "order");
+    
+    -- 日誌優化
+    CREATE INDEX IF NOT EXISTS idx_logs_cleanup ON system_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_logs_room ON system_logs(room_id, created_at);
+  `);
+
   isInitialized = true;
-  console.log("[DB] Database initialized at:", DB_PATH);
+  console.log(
+    "[DB] Database initialized with performance optimizations at:",
+    DB_PATH,
+  );
 }
 
 // 確保資料庫已初始化
@@ -232,24 +263,54 @@ export function ensureInitialized() {
 }
 
 // 清理過期房間（預設 30 分鐘無活動）
+// 注意：只清除 waiting 狀態的房間，不清除正在進行或已完成的遊戲
 export function cleanupExpiredRooms(maxAgeMinutes: number = 30) {
   // 確保資料庫已初始化
   ensureInitialized();
 
-  const cutoff = Date.now() - maxAgeMinutes * 60 * 1000;
-  const result = sqlite
-    .prepare(
-      `
-    DELETE FROM rooms WHERE last_activity_at < ?
-  `,
-    )
-    .run(cutoff);
+  // Drizzle 的 timestamp 模式存的是秒為單位，所以需要轉換
+  const cutoffSeconds = Math.floor(Date.now() / 1000) - maxAgeMinutes * 60;
 
-  if (result.changes > 0) {
-    console.log(`[DB] Cleaned up ${result.changes} expired rooms`);
+  // 使用事務批量刪除，提升性能
+  const transaction = sqlite.transaction(() => {
+    // 先刪除關聯的玩家、抽獎序列、順序和結果
+    const rooms = sqlite
+      .prepare(
+        `SELECT id FROM rooms WHERE last_activity_at < ? AND game_state = 'waiting'`,
+      )
+      .all(cutoffSeconds);
+
+    if (rooms.length === 0) return 0;
+
+    const roomIds = rooms.map((r: any) => r.id);
+    const placeholders = roomIds.map(() => "?").join(",");
+
+    sqlite
+      .prepare(`DELETE FROM players WHERE room_id IN (${placeholders})`)
+      .run(...roomIds);
+    sqlite
+      .prepare(`DELETE FROM draw_sequences WHERE room_id IN (${placeholders})`)
+      .run(...roomIds);
+    sqlite
+      .prepare(`DELETE FROM draw_orders WHERE room_id IN (${placeholders})`)
+      .run(...roomIds);
+    sqlite
+      .prepare(`DELETE FROM draw_results WHERE room_id IN (${placeholders})`)
+      .run(...roomIds);
+    sqlite
+      .prepare(`DELETE FROM rooms WHERE id IN (${placeholders})`)
+      .run(...roomIds);
+
+    return rooms.length;
+  });
+
+  const deletedCount = transaction();
+
+  if (deletedCount > 0) {
+    console.log(`[DB] Cleaned up ${deletedCount} expired rooms`);
   }
 
-  return result.changes;
+  return deletedCount;
 }
 
 // 清理過期日誌

@@ -206,7 +206,9 @@
     "contactHost": "Please contact the host to modify room settings",
     "scanQR": "Scan QR Code to join",
     "roomCreator": "Room Creator",
-    "currentHost": "Current Host"
+    "currentHost": "Current Host",
+    "reconnecting": "Reconnecting",
+    "deviceInRoom": "We detected you previously joined this room"
   },
   "game": {
     "waiting": "Waiting",
@@ -246,11 +248,13 @@
     "preparing": "Preparing result page...",
     "hostControl": "Host Control",
     "nextDrawerLabel": "Next Drawer",
+    "yourTurn": "Your Turn",
     "preparingDraw": "Preparing...",
     "startDraw": "Start Draw",
     "drawing": "Drawing...",
     "drawResult": "Draw Result",
-    "viewResult": "View Result"
+    "viewResult": "View Result",
+    "waitingForNext": "Waiting for next drawer..."
   },
   "share": {
     "title": "Share Result",
@@ -358,6 +362,7 @@
     "cannotJoinRoom": "Cannot join this room",
     "roomNotExists": "Room {code} does not exist or has been disbanded",
     "cannotCheckRoom": "Unable to check room status",
+    "reconnectFailed": "Reconnection failed, please rejoin the room",
     "playerCountRange": "Number of players must be between {min}-{max}",
     "pleaseEnterName": "Please enter your name",
     "pleaseEnterRoomCode": "Please enter room code",

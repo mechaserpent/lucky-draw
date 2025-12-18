@@ -10,6 +10,8 @@
  */
 
 import * as roomService from "../services/roomService";
+import { throttledBroadcast } from "../utils/broadcast-optimizer";
+import { measurePerformance } from "../utils/performance-monitor";
 import type {
   RoomState,
   RoomPlayer,
@@ -30,12 +32,39 @@ function generatePlayerId(): string {
   return "P" + Math.random().toString(36).substring(2, 10).toUpperCase();
 }
 
-function broadcastToRoom(roomId: string, message: object, excludeId?: string) {
+// 原始廣播函數
+function _broadcastToRoom(roomId: string, message: object, excludeId?: string) {
   for (const [id, peer] of peers) {
     if (peer.roomId === roomId && id !== excludeId) {
       peer.send(JSON.stringify(message));
     }
   }
+}
+
+// 節流版本廣播（用於非關鍵更新）
+function broadcastToRoom(
+  roomId: string,
+  message: object,
+  excludeId?: string,
+  immediate: boolean = false,
+) {
+  throttledBroadcast(
+    roomId,
+    message,
+    (rid, msg) => {
+      _broadcastToRoom(rid, msg, excludeId);
+    },
+    immediate,
+  );
+}
+
+// 立即廣播（用於關鍵事件）
+function broadcastImmediate(
+  roomId: string,
+  message: object,
+  excludeId?: string,
+) {
+  _broadcastToRoom(roomId, message, excludeId);
 }
 
 // v0.9.0: 更新 toRoomState 以包含新字段

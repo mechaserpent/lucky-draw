@@ -1,27 +1,41 @@
 <template>
   <div class="app-layout" :style="themeStyle">
     <!-- 雪花背景 -->
-    <div v-if="settings.showSnowflakes" class="snowflakes" ref="snowflakesRef"></div>
-    
+    <div
+      v-if="settings.showSnowflakes"
+      class="snowflakes"
+      ref="snowflakesRef"
+    ></div>
+
     <!-- 全域設定按鈕（固定在右上角） -->
-    <button class="settings-fab" @click="showAppSettingsModal = true" title="設定">
+    <button
+      class="settings-fab"
+      @click="showAppSettingsModal = true"
+      title="設定"
+    >
       ⚙️
     </button>
-    
+
     <div class="container">
       <slot />
     </div>
 
     <!-- 全域設定面板 -->
-    <div class="modal-overlay" v-if="showAppSettingsModal" @click.self="showAppSettingsModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showAppSettingsModal"
+      @click.self="showAppSettingsModal = false"
+    >
       <div class="modal-content settings-modal">
         <div class="modal-header">
           <h3>⚙️ 設定</h3>
-          <button class="modal-close" @click="showAppSettingsModal = false">✕</button>
+          <button class="modal-close" @click="showAppSettingsModal = false">
+            ✕
+          </button>
         </div>
-        <AppSettingsPanel 
+        <AppSettingsPanel
           :readonly="isInGame"
-          @close="showAppSettingsModal = false" 
+          @close="showAppSettingsModal = false"
         />
       </div>
     </div>
@@ -29,41 +43,42 @@
 </template>
 
 <script setup lang="ts">
-import AppSettingsPanel from '~/components/AppSettingsPanel.vue'
+import AppSettingsPanel from "~/components/AppSettingsPanel.vue";
 
-const route = useRoute()
-const { settings, themeStyle, initSettings } = useDynamicConfig()
-const snowflakesRef = ref<HTMLElement | null>(null)
-const showAppSettingsModal = ref(false)
+const route = useRoute();
+const { settings, themeStyle, initSettings } = useDynamicConfig();
+const snowflakesRef = ref<HTMLElement | null>(null);
+const showAppSettingsModal = ref(false);
 
 // 檢測是否在遊戲進行中（solo 或 online 頁面）
 const isInGame = computed(() => {
-  const path = route.path
-  return path === '/solo' || path === '/online'
-})
+  const path = route.path;
+  return path === "/solo" || path === "/online";
+});
 
 onMounted(() => {
-  initSettings()
+  initSettings();
   if (settings.value.showSnowflakes) {
-    createSnowflakes()
+    createSnowflakes();
   }
-})
+});
 
 function createSnowflakes() {
-  if (!snowflakesRef.value) return
-  const container = snowflakesRef.value
-  const snowflakeChars = ['❄', '❅', '❆', '✻', '✼']
-  
-  // 雪花數量固定為 30
-  for (let i = 0; i < 30; i++) {
-    const snowflake = document.createElement('div')
-    snowflake.className = 'snowflake'
-    snowflake.textContent = snowflakeChars[Math.floor(Math.random() * snowflakeChars.length)]
-    snowflake.style.left = Math.random() * 100 + '%'
-    snowflake.style.animationDuration = (Math.random() * 5 + 5) + 's'
-    snowflake.style.animationDelay = (Math.random() * 10) + 's'
-    snowflake.style.fontSize = (Math.random() * 1.5 + 0.8) + 'rem'
-    container.appendChild(snowflake)
+  if (!snowflakesRef.value) return;
+  const container = snowflakesRef.value;
+  const snowflakeChars = ["❄", "❅", "❆", "✻", "✼"];
+
+  // 雪花數量優化為 20（減少 DOM 負擔）
+  for (let i = 0; i < 20; i++) {
+    const snowflake = document.createElement("div");
+    snowflake.className = "snowflake";
+    snowflake.textContent =
+      snowflakeChars[Math.floor(Math.random() * snowflakeChars.length)];
+    snowflake.style.left = Math.random() * 100 + "%";
+    snowflake.style.animationDuration = Math.random() * 5 + 5 + "s";
+    snowflake.style.animationDelay = Math.random() * 10 + "s";
+    snowflake.style.fontSize = Math.random() * 1.5 + 0.8 + "rem";
+    container.appendChild(snowflake);
   }
 }
 </script>
@@ -78,7 +93,7 @@ function createSnowflakes() {
 }
 
 body {
-  font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+  font-family: "Microsoft JhengHei", "Segoe UI", sans-serif;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   min-height: 100vh;
@@ -88,39 +103,51 @@ body {
 
 .app-layout {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--theme-bg-start) 0%, var(--theme-bg-end) 50%, var(--theme-bg-deep) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-bg-start) 0%,
+    var(--theme-bg-end) 50%,
+    var(--theme-bg-deep) 100%
+  );
   position: relative;
   overflow-x: hidden;
 }
 
 /* 背景光暈效果 */
 .app-layout::before {
-  content: '';
+  content: "";
   position: fixed;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(
-    circle at 30% 40%,
-    var(--theme-accent) 0%,
-    transparent 40%
-  ),
-  radial-gradient(
-    circle at 70% 80%,
-    var(--theme-secondary) 0%,
-    transparent 40%
-  );
+  background:
+    radial-gradient(circle at 30% 40%, var(--theme-accent) 0%, transparent 40%),
+    radial-gradient(
+      circle at 70% 80%,
+      var(--theme-secondary) 0%,
+      transparent 40%
+    );
   opacity: 0.08;
   pointer-events: none;
   z-index: 0;
   animation: float 20s ease-in-out infinite;
+  /* GPU 加速優化 */
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 @keyframes float {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  33% { transform: translate(30px, -30px) rotate(5deg); }
-  66% { transform: translate(-20px, 20px) rotate(-5deg); }
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(30px, -30px) rotate(5deg);
+  }
+  66% {
+    transform: translate(-20px, 20px) rotate(-5deg);
+  }
 }
 
 /* 雪花動畫 */
@@ -143,11 +170,15 @@ body {
   opacity: 0.6;
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
   animation: fall linear infinite;
+  /* GPU 加速優化 */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 @keyframes fall {
   to {
-    transform: translateY(100vh) rotate(360deg);
+    transform: translateY(100vh) rotate(360deg) translateZ(0);
     opacity: 0.3;
   }
 }
@@ -157,7 +188,7 @@ body {
   margin: 0 auto;
   padding: 20px;
   position: relative;
-  z-index: 1;  
+  z-index: 1;
 }
 
 @media (max-width: 1366px) {
@@ -175,7 +206,7 @@ body {
   padding: 28px;
   margin-bottom: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   position: relative;
@@ -184,13 +215,14 @@ body {
 }
 
 .card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     rgba(255, 255, 255, 0.2) 50%,
     transparent 100%
@@ -200,7 +232,7 @@ body {
 .card:hover {
   background: var(--theme-surface-light);
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
@@ -231,9 +263,13 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--theme-primary) 0%, color-mix(in srgb, var(--theme-primary), #000 20%) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary) 0%,
+    color-mix(in srgb, var(--theme-primary), #000 20%) 100%
+  );
   color: var(--theme-text);
-  box-shadow: 
+  box-shadow:
     0 4px 15px rgba(191, 9, 47, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   position: relative;
@@ -241,13 +277,14 @@ body {
 }
 
 .btn-primary::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     rgba(255, 255, 255, 0.2) 50%,
     transparent 100%
@@ -261,7 +298,7 @@ body {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 6px 24px rgba(191, 9, 47, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
@@ -291,7 +328,11 @@ body {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, var(--theme-danger) 0%, color-mix(in srgb, var(--theme-danger), #000 20%) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-danger) 0%,
+    color-mix(in srgb, var(--theme-danger), #000 20%) 100%
+  );
   color: var(--theme-text);
   box-shadow: 0 4px 15px rgba(191, 9, 47, 0.4);
 }
@@ -301,7 +342,11 @@ body {
 }
 
 .btn-success {
-  background: linear-gradient(135deg, var(--theme-success) 0%, color-mix(in srgb, var(--theme-success), #000 20%) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-success) 0%,
+    color-mix(in srgb, var(--theme-success), #000 20%) 100%
+  );
   color: var(--theme-text);
   box-shadow: 0 4px 15px rgba(59, 151, 151, 0.4);
 }
@@ -321,7 +366,7 @@ body {
 
 .btn-link {
   background: transparent;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   padding: 8px 16px;
   font-size: 0.8rem;
   text-decoration: underline;
@@ -330,7 +375,7 @@ body {
 
 .btn-link:hover {
   color: #fff;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* 輸入框 */
@@ -354,7 +399,7 @@ body {
   outline: none;
   background: var(--theme-surface-light);
   border-color: var(--theme-accent);
-  box-shadow: 
+  box-shadow:
     inset 0 2px 4px rgba(0, 0, 0, 0.2),
     0 0 0 3px rgba(98, 182, 183, 0.15);
 }
@@ -376,30 +421,38 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-content {
-  background: linear-gradient(135deg, var(--theme-bg-deep) 0%, var(--theme-bg-start) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-bg-deep) 0%,
+    var(--theme-bg-start) 100%
+  );
   padding: 30px;
   border-radius: 20px;
   max-width: 450px;
   width: 90%;
   text-align: center;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 
+  box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   animation: slideUp 0.3s ease;
 }
 
 @keyframes slideUp {
-  from { 
+  from {
     opacity: 0;
     transform: translateY(20px);
   }
-  to { 
+  to {
     opacity: 1;
     transform: translateY(0);
   }
@@ -430,7 +483,7 @@ header {
 header h1 {
   font-size: 2.2rem;
   color: var(--theme-text);
-  text-shadow: 
+  text-shadow:
     0 2px 8px rgba(0, 0, 0, 0.4),
     0 4px 16px rgba(98, 182, 183, 0.3);
   margin-bottom: 10px;
@@ -446,12 +499,16 @@ header h1 {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-secondary) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-accent) 0%,
+    var(--theme-secondary) 100%
+  );
   border: 2px solid rgba(255, 255, 255, 0.2);
   font-size: 1.8rem;
   color: var(--theme-text);
   cursor: pointer;
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -462,14 +519,18 @@ header h1 {
 }
 
 .settings-fab::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -2px;
   left: -2px;
   right: -2px;
   bottom: -2px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--theme-accent), var(--theme-secondary));
+  background: linear-gradient(
+    135deg,
+    var(--theme-accent),
+    var(--theme-secondary)
+  );
   opacity: 0;
   transition: opacity 0.3s;
   z-index: -1;
@@ -477,7 +538,7 @@ header h1 {
 
 .settings-fab:hover {
   transform: scale(1.1) rotate(90deg);
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(98, 182, 183, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
@@ -526,7 +587,11 @@ header h1 {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: sticky;
   top: 0;
-  background: linear-gradient(135deg, var(--theme-bg-deep) 0%, var(--theme-bg-start) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-bg-deep) 0%,
+    var(--theme-bg-start) 100%
+  );
   backdrop-filter: blur(20px);
   z-index: 10;
 }

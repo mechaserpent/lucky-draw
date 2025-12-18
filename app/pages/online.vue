@@ -265,11 +265,15 @@
           :drawn-count="roomState.results.length"
           :total-count="roomState.players.length"
           :can-draw="(isCurrentDrawer() || isHost()) && !hasDrawnCurrent"
-          :is-last-draw="roomState.currentIndex >= roomState.players.length - 1"
+          :is-last-draw="
+            roomState.results.length >= roomState.players.length - 1
+          "
           :actual-result="lastDrawResult"
+          :can-show-next-button="isHost() || isCurrentDrawer()"
+          :is-current-player="isCurrentDrawer()"
           @draw="isCurrentDrawer() ? handlePerformDraw() : handleHostDraw()"
           @next="handleNextDrawer"
-          @complete="() => {}"
+          @complete="handleNextDrawer"
           @animation-start="isDrawing = true"
           @animation-end="onAnimationEnd"
         />
@@ -616,6 +620,61 @@
       </div>
     </div>
 
+    <!-- URL 加入房間彈窗 -->
+    <div
+      class="modal-overlay"
+      v-if="showJoinModal"
+      @click.self="
+        () => {
+          showJoinModal = false;
+          router.push('/');
+        }
+      "
+    >
+      <div class="modal-content">
+        <h3>🚪 {{ $t("modal.joinRoom") }}</h3>
+        <div class="join-room-info">
+          <p>
+            {{ $t("modal.roomCode") }}: <strong>{{ joinRoomCode }}</strong>
+          </p>
+        </div>
+        <div style="margin: 15px 0">
+          <label style="display: block; margin-bottom: 8px">{{
+            $t("modal.yourName")
+          }}</label>
+          <input
+            type="text"
+            class="input"
+            v-model="joinPlayerName"
+            :placeholder="$t('modal.enterName')"
+            maxlength="20"
+            @keypress.enter="confirmJoinRoom"
+            autofocus
+          />
+        </div>
+        <div class="modal-buttons">
+          <button
+            class="btn btn-secondary"
+            @click="
+              () => {
+                showJoinModal = false;
+                router.push('/');
+              }
+            "
+          >
+            {{ $t("common.cancel") }}
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="confirmJoinRoom"
+            :disabled="!joinPlayerName.trim()"
+          >
+            {{ $t("modal.joinRoom") }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 分享結果模態框 -->
     <SocialShareModal
       v-model="showShareModal"
@@ -638,8 +697,10 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 
 const { t } = useI18n();
 const router = useRouter();
+const route = useRoute();
 const dynamicConfig = useDynamicConfig();
 const { addRecord: addHistoryRecord } = useHistory();
+const { copyToClipboard } = useClipboard();
 const {
   isConnected,
   playerId,
@@ -661,6 +722,8 @@ const {
   isCurrentDrawer,
   isHost,
   isCreator, // v0.9.0: 添加創建者檢查
+  joinRoom: wsJoinRoom,
+  setSkipAutoReconnect,
 } = useWebSocket();
 
 const {
@@ -788,6 +851,14 @@ function onWsNextDrawer() {
   showResult.value = false;
   drawBoxContent.value = "🎁";
   lastDrawResult.value = null;
+  isDrawing.value = false;
+
+  // 重置 RouletteAnimation 組件狀態，讓所有客戶端同步回到 "before" 狀態
+  nextTick(() => {
+    if (rouletteAnimationRef.value?.reset) {
+      rouletteAnimationRef.value.reset();
+    }
+  });
 }
 
 function onWsGameComplete() {
@@ -813,41 +884,182 @@ function onAnimationEnd() {
   showResult.value = true;
   hasDrawnCurrent.value = true;
 
-  // Auto-progress to next drawer after a delay (only if host and game not complete)
-  // 使用 currentIndex 判斷是否還有下一位抽獎者
-  if (
-    isHost() &&
-    roomState.value &&
-    roomState.value.gameState === "playing" &&
-    roomState.value.currentIndex < roomState.value.drawOrder.length - 1
-  ) {
+  // Auto-progress to next drawer after a delay (only if host)
+  if (isHost() && roomState.value && roomState.value.gameState === "playing") {
     autoProgressTimeout.value = window.setTimeout(() => {
       autoProgressTimeout.value = null;
+      // 無論是否為最後一位，都發送 next_drawer
+      // 伺服器會判斷是否完成並回覆 game_complete 或 next_drawer
       handleNextDrawer();
     }, 2000);
   }
-  // 注意：遊戲完成由 game_complete 事件處理，不在這裡觸發 celebrate()
-  // 這樣可以避免多客戶端重複觸發或提前觸發的問題
 }
 
 function onWsError(msg: string) {
   displayError(msg);
 }
 
-onMounted(() => {
+// 加入房間的彈窗控制
+const showJoinModal = ref(false);
+const joinPlayerName = ref("");
+const joinRoomCode = ref("");
+const isJoiningFromUrl = ref(false);
+const isReconnecting = ref(false); // 追蹤是否正在重連
+
+// 生成隨機用戶名稱
+function generateRandomUsername(): string {
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
+  return `${t("common.user")}${randomNum}`;
+}
+
+// 處理 URL 加入
+async function handleUrlJoin() {
+  const roomCode = route.query.room as string;
+
+  if (!roomCode) {
+    // 沒有房間代碼，返回首頁
+    router.push("/");
+    return;
+  }
+
+  const code = roomCode.toUpperCase();
+  const { getDeviceId, getReconnectInfo } = useDeviceId();
+  const deviceId = getDeviceId();
+
+  // 先檢查是否有該房間的重連資訊
+  const reconnectInfo = getReconnectInfo(code);
+  if (reconnectInfo && reconnectInfo.expiresAt > Date.now()) {
+    // 有有效的重連 token，發送重連請求
+    console.log(
+      "[URL Join] Found valid reconnect token, attempting reconnect...",
+    );
+    isReconnecting.value = true;
+    send({
+      type: "reconnect",
+      payload: {
+        roomId: code,
+        reconnectToken: reconnectInfo.reconnectToken,
+      },
+    });
+    // 等待重連結果
+    return;
+  }
+
+  try {
+    // 檢查房間是否存在，並帶上 deviceId
+    const response = await $fetch(
+      `/api/room/${code}?deviceId=${encodeURIComponent(deviceId)}`,
+    );
+
+    if (!response.exists) {
+      displayError(t("error.roomNotExists", { code }));
+      setTimeout(() => router.push("/"), 2000);
+      return;
+    }
+
+    // 如果 deviceId 已在房間中但沒有有效的重連 token
+    if (response.isDeviceInRoom) {
+      // 顯示加入彈窗（使用原有名稱重新加入）
+      joinRoomCode.value = code;
+      joinPlayerName.value =
+        response.existingPlayerName || generateRandomUsername();
+      isJoiningFromUrl.value = true;
+      showJoinModal.value = true;
+      return;
+    }
+
+    // deviceId 不在房間中
+    if (!response.canJoin) {
+      displayError(response.reason || t("error.cannotJoinRoom"));
+      setTimeout(() => router.push("/"), 2000);
+      return;
+    }
+
+    // 可以加入，顯示加入彈窗
+    setSkipAutoReconnect(true);
+    joinRoomCode.value = code;
+    joinPlayerName.value = generateRandomUsername();
+    isJoiningFromUrl.value = true;
+    showJoinModal.value = true;
+  } catch (e) {
+    console.error("[URL Join] Error:", e);
+    displayError(t("error.cannotCheckRoom"));
+    setTimeout(() => router.push("/"), 2000);
+  }
+}
+
+// 確認加入房間
+function confirmJoinRoom() {
+  if (!joinPlayerName.value.trim() || !joinRoomCode.value) return;
+
+  showJoinModal.value = false;
+  isJoiningFromUrl.value = false;
+
+  // 等待連線後加入
+  const waitForConnection = () => {
+    if (isConnected.value) {
+      wsJoinRoom(joinRoomCode.value, joinPlayerName.value.trim(), false);
+    } else {
+      setTimeout(waitForConnection, 100);
+    }
+  };
+  waitForConnection();
+}
+
+onMounted(async () => {
   // 確保連線
   if (!isConnected.value) {
     connect();
   }
 
-  // 如果沒有房間狀態，回到首頁
+  // 檢查 URL 是否有房間代碼
+  const roomCode = route.query.room as string;
+
+  // 等待 WebSocket 連線完成
+  const waitForConnection = () =>
+    new Promise<void>((resolve) => {
+      if (isConnected.value) {
+        resolve();
+        return;
+      }
+      const checkInterval = setInterval(() => {
+        if (isConnected.value) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
+      // 5 秒超時
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        resolve();
+      }, 5000);
+    });
+
+  await waitForConnection();
+
+  // 如果已經有房間狀態（自動重連成功），則不需要處理 URL 加入
+  if (roomState.value) {
+    // 如果 URL 有房間代碼且與當前房間不符，清除 URL 參數
+    if (roomCode && roomCode.toUpperCase() !== roomState.value.id) {
+      router.replace({ query: {} });
+    }
+    return;
+  }
+
+  if (roomCode) {
+    // 有房間代碼但沒有房間狀態，需要處理 URL 加入
+    await handleUrlJoin();
+  }
+
+  // 如果沒有房間狀態，等待一段時間後再檢查
   setTimeout(() => {
-    if (!roomState.value) {
+    // 只有在沒有房間狀態且不是正在加入/重連時才返回首頁
+    if (!roomState.value && !showJoinModal.value && !isReconnecting.value) {
       router.push("/");
     }
-  }, 2000);
+  }, 3000);
 
-  // 先清除舊的事件監聽器，再註冊新的
+  // 先清除舊的事件監聯器，再註冊新的
   off("drawPerformed");
   off("nextDrawer");
   off("gameComplete");
@@ -855,8 +1067,10 @@ onMounted(() => {
   off("gameRestarted");
   off("playerDisconnected");
   off("error");
+  off("reconnectSuccess");
+  off("reconnectFailed");
 
-  // 監聽事件
+  // 監聯事件
   on("drawPerformed", onWsDrawPerformed);
   on("nextDrawer", onWsNextDrawer);
   on("gameComplete", onWsGameComplete);
@@ -875,6 +1089,23 @@ onMounted(() => {
     }
   });
   on("error", onWsError);
+
+  // 重連事件處理
+  on("reconnectSuccess", () => {
+    isReconnecting.value = false;
+    console.log("[Online] Reconnect success, clearing URL query");
+    router.replace({ query: {} });
+  });
+  on("reconnectFailed", (message: string) => {
+    isReconnecting.value = false;
+    displayError(message || t("error.reconnectFailed"));
+    // 延遲後跳轉首頁
+    setTimeout(() => {
+      if (!roomState.value) {
+        router.push("/");
+      }
+    }, 2000);
+  });
 });
 
 onUnmounted(() => {
@@ -891,6 +1122,8 @@ onUnmounted(() => {
   off("roomDisbanded");
   off("gameRestarted");
   off("error");
+  off("reconnectSuccess");
+  off("reconnectFailed");
 });
 
 // 顯示錯誤提示
@@ -917,19 +1150,19 @@ function getPlayerName(participantId: number): string {
 }
 
 // 複製房間連結
-function copyRoomLink() {
+async function copyRoomLink() {
   const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}`;
-  navigator.clipboard.writeText(url);
+  const success = await copyToClipboard(url);
   showQRCode(url);
-  displayError("✅ 已複製連結！");
+  displayError(success ? "✅ 已複製連結！" : url);
 }
 
 // 複製觀眾連結
-function copySpectatorLink() {
+async function copySpectatorLink() {
   const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}&spectator=true`;
-  navigator.clipboard.writeText(url);
+  const success = await copyToClipboard(url);
   showQRCode(url);
-  displayError("✅ 已複製觀眾連結！");
+  displayError(success ? "✅ 已複製觀眾連結！" : url);
 }
 
 // 顯示 QR Code

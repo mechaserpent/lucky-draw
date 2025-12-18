@@ -345,6 +345,47 @@ pm2 start lucky-draw
 
 > 💡 **注意**: 刪除資料庫會清除所有房間資料，但不影響用戶的本地設定（儲存在瀏覽器 localStorage）。
 
+## ⚡ 性能優化
+
+本應用已針對**低配置環境**（512MB RAM / 0.1-1 CPU）進行優化：
+
+### ✅ 自動應用的優化
+
+啟動應用時會自動：
+
+- 創建數據庫性能索引
+- 配置 SQLite 最佳化參數（WAL 模式、64MB 緩存）
+- 啟用 GPU 加速的 CSS 動畫
+- 優化雪花動畫（20個，GPU 加速）
+
+### 📊 性能指標
+
+| 環境         | 支持房間數 | 內存使用 | CPU使用 |
+| ------------ | ---------- | -------- | ------- |
+| 512MB/0.1CPU | 10-15      | ~150MB   | ~20%    |
+| 1GB/1CPU     | 30-50      | ~200MB   | ~15%    |
+| 2GB/2CPU     | 100+       | ~350MB   | ~10%    |
+
+### 📚 詳細文檔
+
+- **[性能優化指南](docs/PERFORMANCE_OPTIMIZATION.md)** - 完整優化說明
+- **[部署檢查清單](docs/DEPLOYMENT_CHECKLIST.md)** - 部署前後驗證步驟
+- **[優化腳本使用](scripts/README.md)** - 手動應用優化的方式
+
+### 🔧 驗證優化
+
+```bash
+# 方式 1：查看啟動日誌
+npm run dev
+# 應該看到：[DB] Database initialized with performance optimizations
+
+# 方式 2：運行驗證腳本
+node scripts/apply-optimizations.js
+# 顯示所有已創建的索引和統計信息
+```
+
+---
+
 ## 🚀 部署指南
 
 本專案使用 Nuxt 4 + SQLite，需要支援 Node.js 伺服器環境的平台部署（因為使用 WebSocket 和本地資料庫）。

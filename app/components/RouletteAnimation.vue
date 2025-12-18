@@ -7,7 +7,11 @@
       <div class="next-drawer-info">
         <div class="drawer-avatar">👤</div>
         <div class="drawer-details">
-          <p class="label">{{ $t("game.nextDrawerLabel") }}</p>
+          <p class="label">
+            {{
+              isCurrentPlayer ? $t("game.yourTurn") : $t("game.nextDrawerLabel")
+            }}
+          </p>
           <h2 class="drawer-name">
             {{ currentDrawer?.name || $t("game.preparingDraw") }}
           </h2>
@@ -86,7 +90,7 @@
           <div class="result-card">
             <div class="drawer-info">
               <div class="avatar-large">👤</div>
-              <h2>{{ currentDrawer?.name }}</h2>
+              <h2>{{ displayDrawerName }}</h2>
               <p class="role-label">{{ $t("game.drawer") }}</p>
             </div>
 
@@ -100,6 +104,7 @@
           </div>
 
           <button
+            v-if="canShowNextButton"
             class="btn btn-primary btn-lg next-button"
             @click="handleNext"
           >
@@ -108,6 +113,11 @@
               isLastDraw ? $t("game.viewResult") : $t("game.nextDrawer")
             }}</span>
           </button>
+
+          <!-- 非房主/非當前抽獎者的等待提示 -->
+          <div v-else class="waiting-next-hint">
+            <p>⏳ {{ $t("game.waitingForNext") }}</p>
+          </div>
         </div>
       </div>
     </Transition>
@@ -141,6 +151,8 @@ const props = defineProps<{
   canDraw: boolean;
   isLastDraw: boolean;
   actualResult?: ActualResult | null;
+  canShowNextButton?: boolean; // 是否顯示下一位按鈕（房主或當前抽獎者）
+  isCurrentPlayer?: boolean; // 當前用戶是否是這一輪的抽獎者
 }>();
 
 const emit = defineEmits<{
@@ -167,6 +179,16 @@ const progress = computed(() => {
 // 實際禮物擁有者名稱（優先使用父組件傳入的實際結果）
 const displayWinnerName = computed(() => {
   return props.actualResult?.giftOwnerName || winnerName.value;
+});
+
+// 實際抽獎者名稱（優先使用父組件傳入的實際結果）
+const displayDrawerName = computed(() => {
+  return props.actualResult?.drawerName || props.currentDrawer?.name || "-";
+});
+
+// 計算是否可以顯示下一位按鈕（默認為 true 以保持兼容性）
+const canShowNextButton = computed(() => {
+  return props.canShowNextButton ?? true;
 });
 
 // 擴展項目列表（用於無限滾動效果）
@@ -874,6 +896,29 @@ defineExpose({
   width: 100%;
   max-width: 400px;
   animation: slide-up 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.4s backwards;
+}
+
+/* 等待下一位提示 */
+.waiting-next-hint {
+  text-align: center;
+  padding: 20px;
+  opacity: 0.8;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.waiting-next-hint p {
+  font-size: 1.1rem;
+  color: var(--theme-text-secondary, rgba(255, 255, 255, 0.8));
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* 轉場動畫 */

@@ -12,6 +12,7 @@
 import { db, schema, initDatabase } from "../database";
 import { eq, and, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { measurePerformance } from "../utils/performance-monitor";
 
 initDatabase();
 
@@ -130,12 +131,27 @@ function generateDrawSequence(
 
 // 從資料庫載入房間完整狀態
 export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
-  const roomData = await db.query.rooms.findFirst({
-    where: eq(schema.rooms.id, roomId),
-  });
+  return measurePerformance(
+    `loadRoomFromDb(${roomId})`,
+    async () => {
+      const roomData = await db.query.rooms.findFirst({
+        where: eq(schema.rooms.id, roomId),
+      });
 
-  if (!roomData) return null;
+      if (!roomData) return null;
 
+      return _loadRoomFromDbInternal(roomId, roomData);
+    },
+    "database",
+    { roomId },
+  );
+}
+
+// 內部實現
+async function _loadRoomFromDbInternal(
+  roomId: string,
+  roomData: any,
+): Promise<Room | null> {
   // 載入玩家
   const playersData = await db.query.players.findMany({
     where: eq(schema.players.roomId, roomId),
@@ -231,6 +247,15 @@ export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
 
 // 儲存房間狀態到資料庫
 export async function saveRoomToDb(room: Room): Promise<void> {
+  return measurePerformance(
+    `saveRoomToDb(${room.id})`,
+    async () => _saveRoomToDbInternal(room),
+    "database",
+    { roomId: room.id, gameState: room.gameState },
+  );
+}
+
+async function _saveRoomToDbInternal(room: Room): Promise<void> {
   const now = new Date();
 
   // 更新房間基本資訊
@@ -587,6 +612,8 @@ export async function handleReconnect(
 
   if (!playerData) return null;
 
+  const oldPlayerId = playerData.playerId;
+
   // 更新玩家連線狀態和新的 playerId
   await db
     .update(schema.players)
@@ -596,6 +623,35 @@ export async function handleReconnect(
       disconnectedAt: null,
     })
     .where(eq(schema.players.id, playerData.id));
+
+  // 如果重連的是主持人，更新房間的 hostId
+  if (playerData.isHost) {
+    await db
+      .update(schema.rooms)
+      .set({
+        hostId: newPlayerId,
+        updatedAt: new Date(),
+        lastActivityAt: new Date(),
+      })
+      .where(eq(schema.rooms.id, roomId));
+    console.log(
+      `[Reconnect] Host reconnected, updated hostId from ${oldPlayerId} to ${newPlayerId}`,
+    );
+  }
+
+  // 如果重連的是創建者，更新房間的 creatorId
+  if (playerData.isCreator) {
+    await db
+      .update(schema.rooms)
+      .set({
+        creatorId: newPlayerId,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.rooms.id, roomId));
+    console.log(
+      `[Reconnect] Creator reconnected, updated creatorId from ${oldPlayerId} to ${newPlayerId}`,
+    );
+  }
 
   const room = await loadRoomFromDb(roomId);
   if (!room) return null;

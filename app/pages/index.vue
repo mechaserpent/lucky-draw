@@ -465,32 +465,64 @@ onMounted(async () => {
     const code = roomCode.toUpperCase();
     isCheckingRoom.value = true;
 
-    // 先清除舊的重連資訊，然後設置跳過標誌
-    const { clearReconnectInfo: clearDeviceReconnect } = useDeviceId();
-    clearDeviceReconnect();
-    setSkipAutoReconnect(true);
+    // 獲取 Device ID
+    const {
+      getDeviceId,
+      getReconnectInfo: getDeviceReconnectInfo,
+      clearReconnectInfo: clearDeviceReconnect,
+    } = useDeviceId();
+    const deviceId = getDeviceId();
 
     try {
-      // 先檢查房間是否存在
-      const response = await $fetch(`/api/room/${code}`);
+      // 檢查房間是否存在，並帶上 deviceId 檢查是否已在房間中
+      const response = await $fetch(
+        `/api/room/${code}?deviceId=${encodeURIComponent(deviceId)}`,
+      );
 
       if (response.exists) {
-        // 檢查是否可以加入
-        if (!response.canJoin) {
-          showErrorToast(`${response.reason || t("error.cannotJoinRoom")}`);
-          return;
-        }
+        // 如果 deviceId 已在房間中，嘗試重連
+        if (response.isDeviceInRoom) {
+          // 檢查本地是否有重連 token
+          const reconnectInfo = getDeviceReconnectInfo(code);
 
-        joinRoomId.value = code;
-        joinAsSpectator.value = isSpectator;
-        showJoinRoomModal.value = true;
-        // 延遲聚焦到名字輸入框
-        setTimeout(() => {
-          const nameInput = document.querySelector(
-            ".join-name-input",
-          ) as HTMLInputElement;
-          if (nameInput) nameInput.focus();
-        }, 100);
+          if (reconnectInfo) {
+            // 有重連 token，直接進入 online 頁面進行重連
+            showInfo(`🔄 ${t("online.reconnecting")}...`);
+            router.push("/online");
+            return;
+          } else {
+            // 沒有重連 token，但 deviceId 在房間中
+            // 這可能是清除了 localStorage 的情況，需要重新加入
+            // 預填玩家名稱
+            playerName.value =
+              response.existingPlayerName || generateRandomUsername();
+            joinRoomId.value = code;
+            joinAsSpectator.value = isSpectator;
+            showJoinRoomModal.value = true;
+            showInfo(`📌 ${t("online.deviceInRoom")}`);
+          }
+        } else {
+          // deviceId 不在房間中，檢查是否可以加入
+          if (!response.canJoin) {
+            showErrorToast(`${response.reason || t("error.cannotJoinRoom")}`);
+            return;
+          }
+
+          // 清除舊的重連資訊，然後設置跳過標誌
+          clearDeviceReconnect();
+          setSkipAutoReconnect(true);
+
+          joinRoomId.value = code;
+          joinAsSpectator.value = isSpectator;
+          showJoinRoomModal.value = true;
+          // 延遲聚焦到名字輸入框
+          setTimeout(() => {
+            const nameInput = document.querySelector(
+              ".join-name-input",
+            ) as HTMLInputElement;
+            if (nameInput) nameInput.focus();
+          }, 100);
+        }
       } else {
         showErrorToast(t("error.roomNotExists", { code }));
       }

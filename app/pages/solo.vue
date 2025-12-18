@@ -464,8 +464,16 @@ function handleAddFixedPair(drawerId: number, giftId: number) {
 }
 
 // Computed properties for components
+// 抽獎進行中時不顯示最新結果（動畫完成後才顯示）
 const formattedResults = computed(() => {
-  return state.value.results.map((r) => ({
+  let results = state.value.results;
+
+  // 如果正在抽獎中，排除最新的結果（等動畫結束後才顯示）
+  if (isDrawing.value && results.length > 0) {
+    results = results.slice(0, -1);
+  }
+
+  return results.map((r) => ({
     order: r.order,
     drawerName: getParticipant(r.drawerId)?.name || "?",
     giftOwnerName: getParticipant(r.giftOwnerId)?.name || "?",

@@ -1,5 +1,5 @@
 {
-  "version": "0.9.1",
+  "version": "0.10.0",
   "name": "lucky-draw",
   "private": true,
   "type": "module",
@@ -20,6 +20,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio --port 4983",
     "db:generate": "drizzle-kit generate",
+    "db:optimize": "node scripts/apply-optimizations.js",
+    "perf:report": "node scripts/performance-report.js",
     "v-major": "npm version major",
     "v-minor": "npm version minor",
     "v-patch": "npm version patch",
