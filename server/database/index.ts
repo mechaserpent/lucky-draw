@@ -33,8 +33,16 @@ export const db = drizzle(sqlite, { schema });
 // 導出 schema 供其他模組使用
 export { schema };
 
+// 追蹤資料庫初始化狀態
+let isInitialized = false;
+
 // 初始化資料庫表
 export function initDatabase() {
+  // 如果已經初始化過，直接返回
+  if (isInitialized) {
+    return;
+  }
+
   // 建立 rooms 表
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS rooms (
@@ -212,11 +220,22 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs(level);
   `);
 
+  isInitialized = true;
   console.log("[DB] Database initialized at:", DB_PATH);
+}
+
+// 確保資料庫已初始化
+export function ensureInitialized() {
+  if (!isInitialized) {
+    initDatabase();
+  }
 }
 
 // 清理過期房間（預設 30 分鐘無活動）
 export function cleanupExpiredRooms(maxAgeMinutes: number = 30) {
+  // 確保資料庫已初始化
+  ensureInitialized();
+
   const cutoff = Date.now() - maxAgeMinutes * 60 * 1000;
   const result = sqlite
     .prepare(
@@ -235,6 +254,9 @@ export function cleanupExpiredRooms(maxAgeMinutes: number = 30) {
 
 // 清理過期日誌
 export function cleanupExpiredLogs(maxAgeDays: number = 7) {
+  // 確保資料庫已初始化
+  ensureInitialized();
+
   const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
   const result = sqlite
     .prepare(
