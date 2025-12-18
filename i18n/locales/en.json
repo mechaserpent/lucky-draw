@@ -204,7 +204,9 @@
     "maxPlayersWarning": "Max players cannot be less than current players ({count})",
     "advancedHostOnly": "Advanced settings can only be modified by the host",
     "contactHost": "Please contact the host to modify room settings",
-    "scanQR": "Scan QR Code to join"
+    "scanQR": "Scan QR Code to join",
+    "roomCreator": "Room Creator",
+    "currentHost": "Current Host"
   },
   "game": {
     "waiting": "Waiting",

@@ -63,12 +63,24 @@
             :class="{
               'is-me': player.id === playerId,
               'is-host': player.isHost,
+              'is-creator': player.isCreator,
             }"
           >
             <span class="player-number">{{ player.participantId }}</span>
             <span class="player-name">
               {{ player.name }}
-              <span v-if="player.isHost" class="host-badge">👑</span>
+              <span
+                v-if="player.isCreator"
+                class="creator-badge"
+                :title="$t('online.roomCreator')"
+                >🏠</span
+              >
+              <span
+                v-if="player.isHost"
+                class="host-badge"
+                :title="$t('online.currentHost')"
+                >👑</span
+              >
               <span v-if="player.id === playerId" class="me-badge"
                 >({{ $t("online.you") }})</span
               >
@@ -648,6 +660,7 @@ const {
   getCurrentPlayer,
   isCurrentDrawer,
   isHost,
+  isCreator, // v0.9.0: 添加創建者檢查
 } = useWebSocket();
 
 const {
@@ -1389,6 +1402,12 @@ function celebrate() {
   gap: 8px;
 }
 
+/* v0.9.0: 創建者標記樣式 */
+.creator-badge {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
 .host-badge {
   font-size: 1.2rem;
 }
@@ -1396,6 +1415,11 @@ function celebrate() {
 .me-badge {
   font-size: 0.85rem;
   opacity: 0.7;
+}
+
+/* v0.9.0: 創建者玩家項目樣式 */
+.player-item.is-creator {
+  border-left: 3px solid #4caf50;
 }
 
 .btn-edit-name {

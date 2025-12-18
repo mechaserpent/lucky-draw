@@ -1,11 +1,12 @@
 /**
- * WebSocket 連線管理 - 支援新功能
+ * WebSocket 連線管理 - 支援新功能 (v0.9.0 Server-hosted)
  *
  * 功能：
  * - 房間管理
  * - 觀眾模式
  * - 斷線重連
  * - 抽獎設定
+ * - Server-hosted 模式：伺服器控制房間，所有玩家均為參與者
  */
 
 import type {
@@ -532,6 +533,11 @@ export function useWebSocket() {
     return getCurrentPlayer()?.isHost ?? false;
   }
 
+  // v0.9.0: 檢查是否為房間創建者
+  function isCreator(): boolean {
+    return getCurrentPlayer()?.isCreator ?? false;
+  }
+
   function isSpectator(): boolean {
     return myRole.value === "spectator";
   }
@@ -596,6 +602,7 @@ export function useWebSocket() {
     getCurrentPlayer,
     isCurrentDrawer,
     isHost,
+    isCreator, // v0.9.0: 添加創建者檢查
     isSpectator,
     getPlayerName,
   };

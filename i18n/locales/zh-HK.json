@@ -185,7 +185,7 @@
     "readyStatus": "準備狀態",
     "imReady": "我準備好了",
     "cancelReady": "取消準備",
-    "hostControl": "主機控制",
+    "hostControl": "主持人控制",
     "currentPlayers": "目前人數",
     "addPlayer": "協助加入玩家",
     "enterPlayerName": "輸入玩家名字...",
@@ -196,7 +196,7 @@
     "yourTurn": "輪到你了！點擊開始抽獎",
     "hostCanDraw": "你可以代替玩家抽獎",
     "waitingFor": "等待 {name} 抽獎中...",
-    "hostLeaveWarning": "你是主機，離開後房間將解散！",
+    "hostLeaveWarning": "你是主持人，離開後房間將解散！",
     "confirmLeaveRoom": "確定要離開房間嗎？",
     "enterNewName": "輸入新名稱...",
     "hostOnly": "僅主持人可見",
@@ -204,7 +204,9 @@
     "maxPlayersWarning": "人數上限不能小於目前人數 ({count})",
     "advancedHostOnly": "進階設定僅主持人可修改",
     "contactHost": "如需修改房間設定，請聯繫主持人",
-    "scanQR": "掃描 QR Code 加入"
+    "scanQR": "掃描 QR Code 加入",
+    "roomCreator": "房間創建者",
+    "currentHost": "當前主持人"
   },
   "game": {
     "waiting": "等待中",

@@ -1,11 +1,12 @@
 /**
- * WebSocket 路由處理
+ * WebSocket 路由處理 (v0.9.0 Server-hosted)
  *
  * 支援功能：
  * - 房間管理（建立、加入、離開）
  * - 觀眾模式
  * - 斷線重連
  * - 抽獎設定與執行
+ * - Server-hosted 模式：伺服器控制房間，所有玩家均為參與者
  */
 
 import { db, schema, initDatabase } from "../database";
@@ -18,7 +19,7 @@ export interface RoomSettings {
   maxPlayers: number;
   allowSpectators: boolean;
   drawMode: "chain" | "random";
-  firstDrawerMode: "random" | "manual" | "host";
+  firstDrawerMode: "random" | "manual"; // v0.9.0: 移除 'host' 選項
   firstDrawerId?: number;
 }
 
@@ -27,7 +28,8 @@ export interface RoomPlayer {
   name: string;
   participantId: number;
   role: "player" | "spectator";
-  isHost: boolean;
+  isCreator: boolean; // v0.9.0: 房間創建者標記
+  isHost: boolean; // 當前主持人標記
   isReady: boolean;
   isConnected: boolean;
   isVirtual: boolean;
@@ -41,7 +43,8 @@ export interface DrawResult {
 
 export interface Room {
   id: string;
-  hostId: string;
+  creatorId: string; // v0.9.0: 房間創建者 ID
+  hostId: string; // 當前主持人 ID
   players: RoomPlayer[];
   spectators: RoomPlayer[];
   gameState: "waiting" | "playing" | "complete";
@@ -51,6 +54,7 @@ export interface Room {
   drawOrder: number[];
   currentIndex: number;
   results: DrawResult[];
+  serverHosted: boolean; // v0.9.0: 是否為伺服器託管模式
 }
 
 // ==================== 工具函數 ====================
@@ -162,6 +166,7 @@ export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
       name: p.name,
       participantId: p.participantId,
       role: p.role as "player" | "spectator",
+      isCreator: !!(p as any).isCreator, // v0.9.0: 添加創建者標記
       isHost: !!p.isHost,
       isReady: !!p.isReady,
       isConnected: !!p.isConnected,
@@ -175,6 +180,7 @@ export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
       name: p.name,
       participantId: p.participantId,
       role: p.role as "player" | "spectator",
+      isCreator: !!(p as any).isCreator, // v0.9.0: 添加創建者標記
       isHost: !!p.isHost,
       isReady: !!p.isReady,
       isConnected: !!p.isConnected,
@@ -194,8 +200,15 @@ export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
     giftOwnerId: r.giftOwnerId,
   }));
 
+  // v0.9.0: 處理 firstDrawerMode 向後兼容（將 'host' 轉換為 'random'）
+  let firstDrawerMode = roomData.firstDrawerMode as "random" | "manual";
+  if ((roomData.firstDrawerMode as string) === "host") {
+    firstDrawerMode = "random";
+  }
+
   return {
     id: roomData.id,
+    creatorId: (roomData as any).creatorId || roomData.hostId, // v0.9.0: 添加創建者 ID
     hostId: roomData.hostId,
     players,
     spectators,
@@ -204,7 +217,7 @@ export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
       maxPlayers: roomData.maxPlayers,
       allowSpectators: !!roomData.allowSpectators,
       drawMode: roomData.drawMode as "chain" | "random",
-      firstDrawerMode: roomData.firstDrawerMode as "random" | "manual" | "host",
+      firstDrawerMode,
       firstDrawerId: roomData.firstDrawerId ?? undefined,
     },
     seed: roomData.seed,
@@ -212,6 +225,7 @@ export async function loadRoomFromDb(roomId: string): Promise<Room | null> {
     drawOrder,
     currentIndex: roomData.currentIndex,
     results,
+    serverHosted: (roomData as any).serverHosted !== false, // v0.9.0: 默認為 true
   };
 }
 
@@ -240,8 +254,8 @@ export async function saveRoomToDb(room: Room): Promise<void> {
 // ==================== 房間操作 ====================
 
 export async function createRoom(
-  hostId: string,
-  hostName: string,
+  creatorId: string,
+  creatorName: string,
   settings: Partial<RoomSettings> = {},
   deviceId?: string,
 ): Promise<Room> {
@@ -255,18 +269,25 @@ export async function createRoom(
   const reconnectToken = generateReconnectToken();
   const tokenExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2小時後過期
 
+  // v0.9.0: 處理 firstDrawerMode 向後兼容（將 'host' 轉換為 'random'）
+  let firstDrawerMode = settings.firstDrawerMode ?? "random";
+  if ((firstDrawerMode as string) === "host") {
+    firstDrawerMode = "random";
+  }
+
   const roomSettings: RoomSettings = {
     maxPlayers: settings.maxPlayers ?? 20,
     allowSpectators: settings.allowSpectators ?? true,
     drawMode: settings.drawMode ?? "chain",
-    firstDrawerMode: settings.firstDrawerMode ?? "random",
+    firstDrawerMode,
     firstDrawerId: settings.firstDrawerId,
   };
 
-  // 建立房間
+  // 建立房間（v0.9.0: 創建者同時也是初始主持人）
   await db.insert(schema.rooms).values({
     id: roomId,
-    hostId,
+    creatorId, // v0.9.0: 記錄創建者
+    hostId: creatorId, // 創建者初始為主持人
     maxPlayers: roomSettings.maxPlayers,
     allowSpectators: roomSettings.allowSpectators,
     drawMode: roomSettings.drawMode,
@@ -275,19 +296,21 @@ export async function createRoom(
     gameState: "waiting",
     seed,
     currentIndex: 0,
+    serverHosted: true, // v0.9.0: 默認為伺服器託管模式
     createdAt: now,
     updatedAt: now,
     lastActivityAt: now,
-  });
+  } as any);
 
-  // 建立主機玩家
+  // 建立創建者玩家（v0.9.0: 標記為創建者和主持人）
   await db.insert(schema.players).values({
     roomId,
-    playerId: hostId,
-    name: hostName,
+    playerId: creatorId,
+    name: creatorName,
     participantId: 1,
     role: "player",
-    isHost: true,
+    isCreator: true, // v0.9.0: 標記為創建者
+    isHost: true, // 初始為主持人
     isReady: true,
     isConnected: true,
     isVirtual: false,
@@ -295,17 +318,19 @@ export async function createRoom(
     reconnectToken,
     tokenExpiresAt,
     joinedAt: now,
-  });
+  } as any);
 
   const room: Room = {
     id: roomId,
-    hostId,
+    creatorId, // v0.9.0: 添加創建者 ID
+    hostId: creatorId,
     players: [
       {
-        id: hostId,
-        name: hostName,
+        id: creatorId,
+        name: creatorName,
         participantId: 1,
         role: "player",
+        isCreator: true, // v0.9.0: 標記為創建者
         isHost: true,
         isReady: true,
         isConnected: true,
@@ -320,6 +345,7 @@ export async function createRoom(
     drawOrder: [],
     currentIndex: 0,
     results: [],
+    serverHosted: true, // v0.9.0: 默認為伺服器託管模式
   };
 
   return room;
@@ -377,12 +403,14 @@ export async function joinRoom(
   const reconnectToken = generateReconnectToken();
   const tokenExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2小時後過期
 
+  // v0.9.0: 新加入的玩家不是創建者也不是主持人
   await db.insert(schema.players).values({
     roomId,
     playerId,
     name: playerName,
     participantId,
     role,
+    isCreator: false, // v0.9.0: 新加入者不是創建者
     isHost: false,
     isReady: false,
     isConnected: true,
@@ -391,7 +419,7 @@ export async function joinRoom(
     reconnectToken,
     tokenExpiresAt,
     joinedAt: new Date(),
-  });
+  } as any);
 
   // 更新房間活動時間
   await db
@@ -717,15 +745,11 @@ export async function startGame(
 
   if (!drawSequence) return null;
 
-  // 決定第一位抽獎者
+  // 決定第一位抽獎者（v0.9.0: 移除 'host' 選項）
   const random = mulberry32(gameSeed);
   let firstDrawerId: number;
 
   switch (room.settings.firstDrawerMode) {
-    case "host":
-      firstDrawerId =
-        room.players.find((p) => p.isHost)?.participantId ?? playerIds[0];
-      break;
     case "manual":
       firstDrawerId = room.settings.firstDrawerId ?? playerIds[0];
       break;
@@ -988,6 +1012,7 @@ export async function getPlayerByReconnectToken(
     name: playerData.name,
     participantId: playerData.participantId,
     role: playerData.role as "player" | "spectator",
+    isCreator: !!(playerData as any).isCreator, // v0.9.0: 添加創建者標記
     isHost: !!playerData.isHost,
     isReady: !!playerData.isReady,
     isConnected: !!playerData.isConnected,
