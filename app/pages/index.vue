@@ -377,6 +377,8 @@ const {
   off,
   roomState,
   error,
+  isConnected,
+  setSkipAutoReconnect,
 } = useWebSocket();
 const {
   history: historyRecords,
@@ -462,6 +464,9 @@ onMounted(async () => {
   if (roomCode) {
     const code = roomCode.toUpperCase();
     isCheckingRoom.value = true;
+
+    // 設置跳過自動重連，因為使用 URL 加入時應該直接加入而不是重連
+    setSkipAutoReconnect(true);
 
     try {
       // 先檢查房間是否存在
@@ -592,10 +597,27 @@ function createRoom() {
   // 連接並建立房間
   connect();
 
-  // 等待連接後建立房間
-  setTimeout(() => {
+  // 等待連接建立後再創建房間
+  const waitForConnection = () => {
+    const checkInterval = setInterval(() => {
+      if (isConnected.value) {
+        clearInterval(checkInterval);
+        wsCreateRoom(hostName.value.trim(), { maxPlayers: maxPlayers.value });
+      }
+    }, 100);
+
+    // 連接超時後停止檢查
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 5000);
+  };
+
+  // 如果已經連接，直接創建；否則等待
+  if (isConnected.value) {
     wsCreateRoom(hostName.value.trim(), { maxPlayers: maxPlayers.value });
-  }, 500);
+  } else {
+    waitForConnection();
+  }
 
   // 超時處理
   setTimeout(() => {
@@ -657,13 +679,35 @@ function joinRoom() {
   // 連接並加入房間
   connect();
 
-  setTimeout(() => {
+  // 等待連接建立後再加入房間
+  const waitForConnection = () => {
+    const checkInterval = setInterval(() => {
+      if (isConnected.value) {
+        clearInterval(checkInterval);
+        wsJoinRoom(
+          joinRoomId.value.trim().toUpperCase(),
+          playerName.value.trim(),
+          joinAsSpectator.value,
+        );
+      }
+    }, 100);
+
+    // 連接超時後停止檢查
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 5000);
+  };
+
+  // 如果已經連接，直接加入；否則等待
+  if (isConnected.value) {
     wsJoinRoom(
       joinRoomId.value.trim().toUpperCase(),
       playerName.value.trim(),
       joinAsSpectator.value,
     );
-  }, 500);
+  } else {
+    waitForConnection();
+  }
 
   // 超時處理
   setTimeout(() => {

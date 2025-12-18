@@ -25,7 +25,8 @@
     "startGame": "Start Game",
     "needsRefresh": "Some effects require a page refresh to take effect. Please press F5 or refresh the page.",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "comingSoon": "Coming Soon"
   },
   "appSettings": {
     "tabs": {
@@ -383,5 +384,10 @@
     "passwordSet": "Password set successfully!",
     "seedReset": "Seed reset to: {seed}",
     "cacheCleared": "Cache cleared! Page will reload."
+  },
+  "results": {
+    "title": "Draw Results",
+    "empty": "No draw results yet",
+    "drawing": "Drawing..."
   }
 }

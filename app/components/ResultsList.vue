@@ -1,11 +1,18 @@
 <template>
   <div class="card">
-    <h2>📋 抽獎結果</h2>
+    <h2>📋 {{ $t("results.title") }}</h2>
     <div class="results-list">
-      <div v-if="results.length === 0" class="empty-state">
-        尚無抽獎結果
+      <div v-if="sortedResults.length === 0 && !isDrawing" class="empty-state">
+        {{ $t("results.empty") }}
       </div>
-      <div v-for="r in results" :key="r.order" class="result-item">
+      <!-- 當動畫進行中，顯示進行中狀態 -->
+      <div v-if="isDrawing" class="result-item drawing-item">
+        <span class="order">{{ nextOrder }}</span>
+        <span class="drawer">{{ currentDrawerName || "?" }}</span>
+        <span class="arrow">➡️</span>
+        <span class="gift drawing-text">{{ $t("results.drawing") }}</span>
+      </div>
+      <div v-for="r in sortedResults" :key="r.order" class="result-item">
         <span class="order">{{ r.order }}</span>
         <span class="drawer">{{ r.drawerName }}</span>
         <span class="arrow">➡️</span>
@@ -17,16 +24,29 @@
 
 <script setup lang="ts">
 interface Result {
-  order: number
-  drawerName: string
-  giftOwnerName: string
+  order: number;
+  drawerName: string;
+  giftOwnerName: string;
 }
 
 interface Props {
-  results: Result[]
+  results: Result[];
+  isDrawing?: boolean;
+  currentDrawerName?: string;
 }
 
-defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isDrawing: false,
+  currentDrawerName: "",
+});
+
+// 按順序排序結果
+const sortedResults = computed(() => {
+  return [...props.results].sort((a, b) => a.order - b.order);
+});
+
+// 計算下一個順序號
+const nextOrder = computed(() => props.results.length + 1);
 </script>
 
 <style scoped>
@@ -36,8 +56,9 @@ defineProps<Props>()
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 30px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .card h2 {
@@ -113,6 +134,27 @@ defineProps<Props>()
   font-size: 1.2rem;
   opacity: 0.6;
   flex-shrink: 0;
+}
+
+/* 抽獎進行中的閃爍效果 */
+.drawing-item {
+  background: rgba(var(--theme-primary-rgb, 139, 92, 246), 0.15);
+  border-color: rgba(var(--theme-primary-rgb, 139, 92, 246), 0.3);
+}
+
+.drawing-text {
+  animation: blink 1s ease-in-out infinite;
+  color: var(--theme-accent);
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @media (max-width: 768px) {

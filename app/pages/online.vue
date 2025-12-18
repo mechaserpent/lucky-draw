@@ -44,13 +44,10 @@
             <button class="btn btn-secondary" @click="copyRoomLink">
               📋 {{ $t("online.copyLink") }}
             </button>
-            <button
-              v-if="roomState.settings.allowSpectators"
-              class="btn btn-secondary"
-              @click="copySpectatorLink"
-            >
+            <!-- 觀眾連結按鈕暫時隱藏，功能即將推出 -->
+            <!-- <button v-if="roomState.settings.allowSpectators" class="btn btn-secondary" @click="copySpectatorLink">
               👁️ {{ $t("online.spectatorLink") }}
-            </button>
+            </button> -->
           </div>
         </div>
       </div>
@@ -192,11 +189,14 @@
             @remove-pair="removeFixedPair"
           />
 
-          <!-- 允許觀眾 -->
-          <div class="spectator-toggle">
+          <!-- 允許觀眾 - 暫時禁用，顯示即將推出 -->
+          <div class="spectator-toggle coming-soon">
             <label>
-              <input type="checkbox" v-model="allowSpectators" />
+              <input type="checkbox" v-model="allowSpectators" disabled />
               {{ $t("online.allowSpectators") }}
+              <span class="coming-soon-badge">{{
+                $t("common.comingSoon")
+              }}</span>
             </label>
           </div>
         </div>
@@ -239,6 +239,7 @@
     <template v-else-if="roomState?.gameState === 'playing'">
       <div class="card">
         <RouletteAnimation
+          ref="rouletteAnimationRef"
           :current-drawer="{
             id: getCurrentDrawerId(),
             name: currentDrawerName,
@@ -257,6 +258,8 @@
           @draw="isCurrentDrawer() ? handlePerformDraw() : handleHostDraw()"
           @next="handleNextDrawer"
           @complete="() => {}"
+          @animation-start="isDrawing = true"
+          @animation-end="onAnimationEnd"
         />
 
         <!-- 提示訊息 -->
@@ -273,14 +276,22 @@
 
       <!-- 結果列表 -->
       <!-- 結果列表 -->
-      <ResultsList :results="formattedResults" />
+      <ResultsList
+        :results="formattedResults"
+        :is-drawing="isDrawing"
+        :current-drawer-name="currentDrawerName"
+      />
 
       <!-- 遊戲進行中控制按鈕 -->
-      <div class="controls" v-if="isHost()">
+      <div class="controls">
         <button class="btn btn-warning" @click="openSettingsModal">
           ⚙️ {{ $t("game.viewSettings") }}
         </button>
-        <button class="btn btn-danger" @click="handleRestartGame">
+        <button
+          class="btn btn-danger"
+          @click="handleRestartGame"
+          v-if="isHost()"
+        >
           🔄 {{ $t("game.restart") }}
         </button>
       </div>
@@ -397,6 +408,13 @@
             </div>
 
             <div class="setting-item">
+              <span class="setting-label">🎲 {{ $t("common.seed") }}:</span>
+              <span class="setting-value seed-value">{{
+                roomState?.seed
+              }}</span>
+            </div>
+
+            <div class="setting-item">
               <span class="setting-label"
                 >👥 {{ $t("modal.playerCount") }}:</span
               >
@@ -430,12 +448,17 @@
               <span class="setting-label"
                 >👁️ {{ $t("online.allowSpectators") }}:</span
               >
-              <span class="setting-value">{{
-                roomState?.settings.allowSpectators
-                  ? $t("common.yes")
-                  : $t("common.no")
-              }}</span>
+              <span class="setting-value coming-soon-text">
+                {{ $t("common.comingSoon") }}
+              </span>
             </div>
+
+            <!-- 觀眾連結按鈕 - 暫時隱藏，功能即將推出 -->
+            <!-- <div v-if="roomState?.settings.allowSpectators" class="advanced-action">
+              <button class="btn btn-secondary btn-sm" @click="copySpectatorLink">
+                👁️ {{ $t("online.copySpectatorLink") }}
+              </button>
+            </div> -->
 
             <!-- 參與者名單 -->
             <div class="participants-list">
@@ -463,26 +486,6 @@
                 <span class="section-badge host-only">{{
                   $t("online.hostOnly")
                 }}</span>
-              </div>
-
-              <div class="setting-item">
-                <span class="setting-label">🎲 {{ $t("common.seed") }}:</span>
-                <span class="setting-value seed-value">{{
-                  roomState?.seed
-                }}</span>
-              </div>
-
-              <!-- 觀眾連結按鈕 -->
-              <div
-                v-if="roomState?.settings.allowSpectators"
-                class="advanced-action"
-              >
-                <button
-                  class="btn btn-secondary btn-sm"
-                  @click="copySpectatorLink"
-                >
-                  👁️ {{ $t("online.copySpectatorLink") }}
-                </button>
               </div>
 
               <!-- 主機在等待階段可編輯人數上限 -->
@@ -687,6 +690,9 @@ const showAdvancedModal = ref(false);
 const showErrorToast = ref(false);
 const errorMessage = ref("");
 
+// RouletteAnimation 組件引用
+const rouletteAnimationRef = ref<any>(null);
+
 // 抽獎動畫狀態
 const isDrawing = ref(false);
 const autoProgressTimeout = ref<number | null>(null);
@@ -728,9 +734,17 @@ function getCurrentDrawerId() {
 }
 
 // Computed properties for components
+// 抽獎進行中時不顯示最新結果（動畫完成後才顯示）
 const formattedResults = computed(() => {
   if (!roomState.value) return [];
-  return roomState.value.results.map((r: any) => ({
+  let results = roomState.value.results;
+
+  // 如果正在抽獎中，排除最新的結果（等動畫結束後才顯示）
+  if (isDrawing.value && results.length > 0) {
+    results = results.slice(0, -1);
+  }
+
+  return results.map((r: any) => ({
     order: r.order,
     drawerName: getPlayerName(r.drawerId),
     giftOwnerName: getPlayerName(r.giftOwnerId),
@@ -778,6 +792,29 @@ function onWsGameRestarted() {
   lastDrawResult.value = null;
   hasAddedHistory.value = false;
   displayError("✅ 遊戲已重新開始！");
+}
+
+// RouletteAnimation 動畫結束回調
+function onAnimationEnd() {
+  isDrawing.value = false;
+  showResult.value = true;
+  hasDrawnCurrent.value = true;
+
+  // Auto-progress to next drawer after a delay (only if host and game not complete)
+  // 使用 currentIndex 判斷是否還有下一位抽獎者
+  if (
+    isHost() &&
+    roomState.value &&
+    roomState.value.gameState === "playing" &&
+    roomState.value.currentIndex < roomState.value.drawOrder.length - 1
+  ) {
+    autoProgressTimeout.value = window.setTimeout(() => {
+      autoProgressTimeout.value = null;
+      handleNextDrawer();
+    }, 2000);
+  }
+  // 注意：遊戲完成由 game_complete 事件處理，不在這裡觸發 celebrate()
+  // 這樣可以避免多客戶端重複觸發或提前觸發的問題
 }
 
 function onWsError(msg: string) {
@@ -1102,7 +1139,7 @@ function saveRoomSettings() {
 // 防止重複觸發抽獎動畫
 let animationInProgress = false;
 
-// 播放抽獎動畫
+// 播放抽獎動畫 - 只設置結果，實際動畫由 RouletteAnimation 處理
 function playDrawAnimation(result: any) {
   // 防止重複觸發
   if (animationInProgress) {
@@ -1114,63 +1151,30 @@ function playDrawAnimation(result: any) {
   isDrawing.value = true;
   showResult.value = false;
 
-  let shuffleCount = 0;
-  const maxShuffles = 20;
+  const drawerName = getPlayerName(result.drawerId);
+  const giftOwner = getPlayerName(result.giftOwnerId);
+  drawBoxContent.value = giftOwner.charAt(0);
+  resultGiftOwner.value = giftOwner;
 
-  const shuffleInterval = setInterval(() => {
-    if (!roomState.value) {
-      clearInterval(shuffleInterval);
-      animationInProgress = false;
-      return;
+  // 儲存實際抽獎結果供動畫組件使用
+  // RouletteAnimation 會在動畫完成後觸發 @animation-end
+  lastDrawResult.value = {
+    drawerName,
+    giftOwnerName: giftOwner,
+  };
+
+  // 觸發所有客戶端的動畫同步
+  nextTick(() => {
+    if (rouletteAnimationRef.value?.triggerAnimation) {
+      rouletteAnimationRef.value.triggerAnimation();
     }
-    const randomP =
-      roomState.value.players[
-        Math.floor(Math.random() * roomState.value.players.length)
-      ];
-    drawBoxContent.value = randomP.name.charAt(0);
-    shuffleCount++;
+  });
 
-    if (shuffleCount >= maxShuffles) {
-      clearInterval(shuffleInterval);
-
-      const drawerName = getPlayerName(result.drawerId);
-      const giftOwner = getPlayerName(result.giftOwnerId);
-      drawBoxContent.value = giftOwner.charAt(0);
-      resultGiftOwner.value = giftOwner;
-
-      // 儲存實際抽獎結果供動畫組件使用
-      lastDrawResult.value = {
-        drawerName,
-        giftOwnerName: giftOwner,
-      };
-
-      isDrawing.value = false;
-      showResult.value = true;
-      hasDrawnCurrent.value = true;
-      animationInProgress = false;
-
-      // Auto-progress to next drawer after a delay (only if host and game not complete)
-      if (
-        isHost() &&
-        roomState.value &&
-        roomState.value.gameState === "playing" &&
-        roomState.value.results.length < roomState.value.players.length
-      ) {
-        autoProgressTimeout.value = window.setTimeout(() => {
-          autoProgressTimeout.value = null;
-          handleNextDrawer();
-        }, 2000); // 2 second delay to show the result
-      } else if (
-        roomState.value &&
-        roomState.value.results.length >= roomState.value.players.length
-      ) {
-        // 遊戲完成，觸發慶祝動畫
-        setTimeout(() => {
-          celebrate();
-        }, 500);
-      }
-    }
-  }, 80);
+  // 動畫結束後會由 onAnimationEnd 處理狀態更新
+  // 設置超時保護，防止動畫事件未觸發
+  setTimeout(() => {
+    animationInProgress = false;
+  }, 10000); // 10 秒超時保護
 }
 
 // 重新開始遊戲（保持設定，更新 seed）
@@ -1499,6 +1503,7 @@ function celebrate() {
   100% {
     transform: translateX(0) rotate(0deg);
   }
+
   10%,
   30%,
   50%,
@@ -1506,6 +1511,7 @@ function celebrate() {
   90% {
     transform: translateX(-5px) rotate(-2deg);
   }
+
   20%,
   40%,
   60%,
@@ -1761,6 +1767,25 @@ function celebrate() {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.spectator-toggle.coming-soon label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.spectator-toggle.coming-soon input {
+  cursor: not-allowed;
+}
+
+.coming-soon-badge {
+  font-size: 0.75rem;
+  background: linear-gradient(135deg, #ff6b6b, #feca57);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  font-weight: 600;
 }
 
 .host-buttons {
@@ -2477,9 +2502,11 @@ function celebrate() {
   100% {
     transform: translateY(0) rotate(0deg);
   }
+
   25% {
     transform: translateY(-20px) rotate(-10deg);
   }
+
   75% {
     transform: translateY(-15px) rotate(10deg);
   }
@@ -2534,6 +2561,7 @@ function celebrate() {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.8;
     transform: scale(1.02);

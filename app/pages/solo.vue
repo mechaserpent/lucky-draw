@@ -116,10 +116,10 @@
           <button class="btn btn-primary" @click="handleStartDraw">
             🎲 {{ $t("game.startGame") }}
           </button>
-          <button class="btn btn-danger" @click="showResetAllModal = true">
+          <button class="btn btn-danger" @click="handleResetAll">
             🗑️ {{ $t("game.resetAll") }}
           </button>
-          <button class="btn btn-secondary" @click="showClearCacheModal = true">
+          <button class="btn btn-secondary" @click="handleClearCache">
             🧹 {{ $t("game.clearCache") }}
           </button>
           <button class="btn btn-secondary" @click="router.push('/')">
@@ -143,17 +143,23 @@
           @draw="handlePerformDraw"
           @next="handleNextDraw"
           @complete="handleComplete"
+          @animation-start="isDrawing = true"
+          @animation-end="isDrawing = false"
         />
       </div>
 
       <!-- 結果列表 -->
-      <ResultsList :results="formattedResults" />
+      <ResultsList
+        :results="formattedResults"
+        :is-drawing="isDrawing"
+        :current-drawer-name="getCurrentDrawer()?.name"
+      />
 
       <div class="controls">
         <button class="btn btn-secondary" @click="showViewSettingsModal = true">
           👁️ {{ $t("game.viewSettings") }}
         </button>
-        <button class="btn btn-danger" @click="showResetAllModal = true">
+        <button class="btn btn-danger" @click="handleResetAll">
           🔄 {{ $t("game.restart") }}
         </button>
       </div>
@@ -499,7 +505,11 @@ function confirmAdvanced(password: string) {
 
 // 確認重設 Seed
 function confirmResetSeed(password: string) {
-  if (!verifyPassword(password)) {
+  // 密碼保護關閉時跳過驗證
+  if (
+    dynamicConfig.settings.value.passwordProtection &&
+    !verifyPassword(password)
+  ) {
     alert(t("error.wrongPassword"));
     return;
   }
@@ -509,13 +519,28 @@ function confirmResetSeed(password: string) {
   alert(t("notifications.seedReset", { seed: state.value.seed }));
 }
 
-// 確認重置全部
-function confirmResetAll(password: string) {
-  if (!verifyPassword(password)) {
-    alert(t("error.wrongPassword"));
-    return;
+// 處理重置全部（檢查是否需要密碼）
+function handleResetAll() {
+  if (dynamicConfig.settings.value.passwordProtection) {
+    showResetAllModal.value = true;
+  } else {
+    // 密碼保護關閉，直接執行
+    doResetAll();
   }
+}
 
+// 處理清除緩存（檢查是否需要密碼）
+function handleClearCache() {
+  if (dynamicConfig.settings.value.passwordProtection) {
+    showClearCacheModal.value = true;
+  } else {
+    // 密碼保護關閉，直接執行
+    doClearCache();
+  }
+}
+
+// 執行重置全部
+function doResetAll() {
   resetAll();
   showResetAllModal.value = false;
   showAdvanced.value = false;
@@ -527,17 +552,30 @@ function confirmResetAll(password: string) {
   hasDrawnCurrent.value = false;
 }
 
+// 執行清除緩存
+function doClearCache() {
+  clearAllCache();
+  showClearCacheModal.value = false;
+  alert(t("notifications.cacheCleared"));
+  window.location.reload();
+}
+
+// 確認重置全部
+function confirmResetAll(password: string) {
+  if (!verifyPassword(password)) {
+    alert(t("error.wrongPassword"));
+    return;
+  }
+  doResetAll();
+}
+
 // 確認清除緩存
 function confirmClearCache(password: string) {
   if (!verifyPassword(password)) {
     alert(t("error.wrongPassword"));
     return;
   }
-
-  clearAllCache();
-  showClearCacheModal.value = false;
-  alert(t("notifications.cacheCleared"));
-  window.location.reload();
+  doClearCache();
 }
 
 // 開始抽獎

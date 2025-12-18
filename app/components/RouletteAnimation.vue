@@ -147,6 +147,8 @@ const emit = defineEmits<{
   (e: "draw"): void;
   (e: "next"): void;
   (e: "complete"): void;
+  (e: "animation-start"): void;
+  (e: "animation-end"): void;
 }>();
 
 // 狀態管理
@@ -171,12 +173,19 @@ const displayWinnerName = computed(() => {
 const extendedItems = ref<RouletteItem[]>([]);
 
 // 抽獎動畫設定
-const ITEM_WIDTH = 100; // 每個項目寬度 (px)
 const ITEM_GAP = 8; // 項目間距 (px)
-const CLONE_TIMES = 12; // 重複次數（增加懸念感）
-const SPIN_DURATION = 4.5; // 主動畫持續時間 (秒)
-const SLOW_DURATION = 2.5; // 減速階段時間 (秒)
-const PAUSE_DURATION = 1.2; // 停頓揭曉時間 (秒)
+const MIN_ITEMS = 120; // 最小項目數量（確保少人數時動畫效果一致）
+const SPIN_DURATION = 5; // 主動畫持續時間 (秒) - 快速滾動
+const FAKE_OUT_CHANCE = 0.175; // 假動作觸發機率 (17.5%)
+const PAUSE_DURATION = 1.5; // 停頓揭曉時間 (秒)
+
+// 動態計算項目寬度（根據螢幕尺寸）
+function getItemWidth(): number {
+  if (typeof window !== "undefined" && window.innerWidth <= 768) {
+    return 80; // 手機版
+  }
+  return 100; // 桌面版
+}
 
 function startDraw() {
   if (!props.canDraw) return;
@@ -188,21 +197,29 @@ function startDraw() {
   // 階段轉換: before -> drawing
   state.value = "drawing";
 
+  // 通知父組件動畫開始
+  emit("animation-start");
+
   // 暫停背景動畫（如雪花）
   document.body.classList.add("animation-paused");
 
   // 呼叫父組件執行抽獎邏輯（先計算結果）
   emit("draw");
 
-  // 延遲執行動畫，確保結果已計算
-  nextTick(() => {
-    performDrawAnimation();
-  });
+  // 延遲執行動畫，確保 actualResult prop 已更新
+  setTimeout(() => {
+    nextTick(() => {
+      performDrawAnimation();
+    });
+  }, 50);
 }
 
 function performDrawAnimation() {
-  // 準備滾動項目
+  // 準備滾動項目（不會透露獲勝者名字）
   prepareRouletteItems();
+
+  // 動態獲取項目寬度
+  const ITEM_WIDTH = getItemWidth();
 
   // 計算位置相關數值
   const winnerIndex = extendedItems.value.findIndex((item) => item.isWinner);
@@ -211,98 +228,78 @@ function performDrawAnimation() {
   const itemStep = ITEM_WIDTH + ITEM_GAP;
   const targetPosition = -(winnerIndex * itemStep) + centerOffset;
 
-  // 隨機決定是否製造「假動作」效果 (30% 機率)
-  const hasFakeOut = Math.random() < 0.3;
-  // 假動作類型: 'overshoot' 過頭倒回, 'undershoot' 差一格再滑過去
-  const fakeOutType = Math.random() < 0.5 ? "overshoot" : "undershoot";
-  // 假動作偏移量 (0.3~1.2 個格子)
-  const fakeOutOffset = (0.3 + Math.random() * 0.9) * itemStep;
+  // 使用單一流暢的減速動畫 - 從快到慢
+  // cubic-bezier(0.1, 0.25, 0.1, 1) 產生快速開始、緩慢結束的效果
+  trackStyle.value = {
+    transform: `translateX(${targetPosition}px)`,
+    transition: `transform ${SPIN_DURATION}s cubic-bezier(0.1, 0.25, 0.1, 1)`,
+  };
 
-  // 計算中間位置 (過頭或不夠的位置)
-  const fakePosition =
-    fakeOutType === "overshoot"
-      ? targetPosition - fakeOutOffset
-      : targetPosition + fakeOutOffset;
+  // 動畫結束後決定是否觸發假動作
+  setTimeout(() => {
+    const hasFakeOut = Math.random() < FAKE_OUT_CHANCE;
 
-  if (hasFakeOut) {
-    // 三段式動畫：快速 → 假動作位置 → 最終位置
+    if (hasFakeOut) {
+      // 假動作：滑到下一格或部分下一格，然後回到原位
+      // 偏移量：0.3~0.8 個格子（不會完全到下一格）
+      const fakeOffset = (0.3 + Math.random() * 0.5) * itemStep;
+      const fakePosition = targetPosition - fakeOffset; // 往前滑一點
 
-    // 第一階段：快速滾動到假動作位置
-    trackStyle.value = {
-      transform: `translateX(${fakePosition}px)`,
-      transition: `transform ${SPIN_DURATION}s cubic-bezier(0.1, 0.7, 0.3, 1)`,
-    };
-
-    // 第二階段：慢慢移動到最終位置（製造緊張感）
-    setTimeout(() => {
+      // 快速滑到假位置
       trackStyle.value = {
-        transform: `translateX(${targetPosition}px)`,
-        transition: `transform ${SLOW_DURATION}s cubic-bezier(0.25, 0.1, 0.25, 1)`,
+        transform: `translateX(${fakePosition}px)`,
+        transition: `transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1)`,
       };
-    }, SPIN_DURATION * 1000);
 
-    // 第三階段：停頓後顯示高亮和結果
-    setTimeout(
-      () => {
+      // 然後慢慢回到正確位置
+      setTimeout(() => {
+        trackStyle.value = {
+          transform: `translateX(${targetPosition}px)`,
+          transition: `transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1)`,
+        };
+
+        // 回到位置後停頓揭曉
+        setTimeout(() => {
+          showWinnerHighlight.value = true;
+        }, 600 + 300);
+
+        setTimeout(
+          () => {
+            state.value = "after";
+            emit("animation-end");
+            document.body.classList.remove("animation-paused");
+          },
+          600 + PAUSE_DURATION * 1000,
+        );
+      }, 400);
+    } else {
+      // 無假動作：直接停頓揭曉
+      setTimeout(() => {
         showWinnerHighlight.value = true;
-      },
-      (SPIN_DURATION + SLOW_DURATION) * 1000 + 300,
-    );
+      }, 300);
 
-    setTimeout(
-      () => {
+      setTimeout(() => {
         state.value = "after";
+        emit("animation-end");
         document.body.classList.remove("animation-paused");
-      },
-      (SPIN_DURATION + SLOW_DURATION + PAUSE_DURATION) * 1000,
-    );
-  } else {
-    // 兩段式動畫：快速 → 極慢減速
-
-    // 第一階段：快速滾動
-    const almostPosition = targetPosition + itemStep * 2; // 差兩格
-    trackStyle.value = {
-      transform: `translateX(${almostPosition}px)`,
-      transition: `transform ${SPIN_DURATION}s cubic-bezier(0.1, 0.7, 0.3, 1)`,
-    };
-
-    // 第二階段：極慢滑到最終位置
-    setTimeout(() => {
-      trackStyle.value = {
-        transform: `translateX(${targetPosition}px)`,
-        transition: `transform ${SLOW_DURATION}s cubic-bezier(0.15, 0, 0.25, 1)`,
-      };
-    }, SPIN_DURATION * 1000);
-
-    // 停頓後顯示高亮
-    setTimeout(
-      () => {
-        showWinnerHighlight.value = true;
-      },
-      (SPIN_DURATION + SLOW_DURATION) * 1000 + 300,
-    );
-
-    // 再停頓後顯示結果
-    setTimeout(
-      () => {
-        state.value = "after";
-        document.body.classList.remove("animation-paused");
-      },
-      (SPIN_DURATION + SLOW_DURATION + PAUSE_DURATION) * 1000,
-    );
-  }
+      }, PAUSE_DURATION * 1000);
+    }
+  }, SPIN_DURATION * 1000);
 }
 
 function prepareRouletteItems() {
   const items: RouletteItem[] = [];
   const emojis = ["🎁", "🎀", "🎊", "🎉", "🎈", "⭐", "💝", "🎄"];
 
-  // 取得實際結果的禮物擁有者名字
-  const actualWinnerName = props.actualResult?.giftOwnerName || "";
+  // 計算需要的克隆次數，確保至少有 MIN_ITEMS 個項目
+  const participantCount = props.participants.length || 1;
+  const cloneTimes = Math.max(Math.ceil(MIN_ITEMS / participantCount), 12);
 
-  // 克隆參與者列表多次
-  for (let clone = 0; clone < CLONE_TIMES; clone++) {
-    props.participants.forEach((p, idx) => {
+  // 克隆參與者列表多次（打亂順序增加神秘感）
+  for (let clone = 0; clone < cloneTimes; clone++) {
+    // 每輪隨機打亂參與者順序
+    const shuffled = [...props.participants].sort(() => Math.random() - 0.5);
+    shuffled.forEach((p, idx) => {
       items.push({
         id: p.id,
         name: p.name,
@@ -313,29 +310,21 @@ function prepareRouletteItems() {
     });
   }
 
-  // 設定中獎項目（在中間偏後的位置）
-  // 找到實際獲勝者在目標區域的位置
-  const targetZoneStart = Math.floor(items.length * 0.6);
+  // 隨機選擇一個位置作為「視覺停止點」（在中間偏後的位置）
+  const targetZoneStart = Math.floor(items.length * 0.55);
   const targetZoneEnd = Math.floor(items.length * 0.75);
+  const winnerIdx =
+    targetZoneStart +
+    Math.floor(Math.random() * (targetZoneEnd - targetZoneStart));
 
-  // 在目標區域中找到實際獲勝者
-  let winnerIdx = -1;
-  for (let i = targetZoneStart; i < targetZoneEnd; i++) {
-    if (items[i].name === actualWinnerName) {
-      winnerIdx = i;
-      break;
-    }
-  }
-
-  // 如果找不到，就隨機選一個位置並設置（名字在動畫期間不會透露）
-  if (winnerIdx === -1) {
-    winnerIdx = Math.floor(items.length * 0.65);
+  // 將 winner 位置的名字替換為實際結果
+  // 這樣動畫停止時顯示的就是正確的禮物擁有者
+  if (props.actualResult?.giftOwnerName) {
+    items[winnerIdx].name = props.actualResult.giftOwnerName;
   }
 
   items[winnerIdx].isWinner = true;
   items[winnerIdx].isRare = true;
-  // 不要在這裡設置 winnerName，直到動畫結束
-  // winnerName 會在 displayWinnerName computed 中從 actualResult 取得
 
   extendedItems.value = items;
 }
@@ -363,13 +352,26 @@ function getConfettiStyle(index: number) {
   };
 }
 
-// 暴露重置方法
+// 暴露重置方法和開始動畫方法
 defineExpose({
   reset: () => {
     state.value = "before";
     trackStyle.value = {};
     extendedItems.value = [];
     showWinnerHighlight.value = false;
+  },
+  // 讓父組件可以外部觸發動畫（用於同步多個客戶端）
+  triggerAnimation: () => {
+    if (state.value !== "drawing") {
+      showWinnerHighlight.value = false;
+      trackStyle.value = {};
+      state.value = "drawing";
+      emit("animation-start");
+      document.body.classList.add("animation-paused");
+      nextTick(() => {
+        performDrawAnimation();
+      });
+    }
   },
 });
 </script>

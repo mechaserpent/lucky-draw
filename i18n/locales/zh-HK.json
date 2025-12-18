@@ -25,7 +25,8 @@
     "startGame": "開始遊戲",
     "needsRefresh": "部分效果需要重新整理頁面才能生效，請按 F5 或重新整理",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "comingSoon": "即將推出"
   },
   "appSettings": {
     "tabs": {
@@ -383,5 +384,10 @@
     "passwordSet": "密碼設定成功！",
     "seedReset": "Seed 已重設為: {seed}",
     "cacheCleared": "緩存已清除！頁面將重新載入。"
+  },
+  "results": {
+    "title": "抽獎結果",
+    "empty": "尚無抽獎結果",
+    "drawing": "抽獎進行中..."
   }
 }
