@@ -1,21 +1,29 @@
 <template>
   <div class="advanced-settings">
     <div class="advanced-toggle" @click="$emit('toggle')">
-      🔧 進階選項
+      🔧 {{ $t("settings.advanced") }}
     </div>
 
     <div v-if="isOpen" class="advanced-section">
       <div class="fixed-pair-item">
         <select v-model="localDrawerId">
-          <option :value="null">選擇 A</option>
-          <option v-for="participant in participants" :key="participant.id" :value="participant.id">
+          <option :value="null">{{ $t("settings.drawerA") }}</option>
+          <option
+            v-for="participant in participants"
+            :key="participant.id"
+            :value="participant.id"
+          >
             {{ getParticipantLabel(participant) }}
           </option>
         </select>
         <span>→</span>
         <select v-model="localGiftId">
-          <option :value="null">選擇 B</option>
-          <option v-for="participant in participants" :key="participant.id" :value="participant.id">
+          <option :value="null">{{ $t("settings.giftB") }}</option>
+          <option
+            v-for="participant in participants"
+            :key="participant.id"
+            :value="participant.id"
+          >
             {{ getParticipantLabel(participant) }}
           </option>
         </select>
@@ -23,12 +31,20 @@
       </div>
 
       <div class="fixed-pairs-list">
-        <span v-for="pair in fixedPairs" :key="pair.drawerId" class="fixed-pair-tag">
-          {{ getParticipantLabel(getParticipantById(pair.drawerId)) }} → 
+        <span
+          v-for="pair in fixedPairs"
+          :key="pair.drawerId"
+          class="fixed-pair-tag"
+        >
+          {{ getParticipantLabel(getParticipantById(pair.drawerId)) }} →
           {{ getParticipantLabel(getParticipantById(pair.giftOwnerId)) }}
-          <span class="remove" @click="$emit('remove-pair', pair.drawerId)">✕</span>
+          <span class="remove" @click="$emit('remove-pair', pair.drawerId)"
+            >✕</span
+          >
         </span>
-        <p v-if="fixedPairs.length === 0" class="empty-hint">無設定</p>
+        <p v-if="fixedPairs.length === 0" class="empty-hint">
+          {{ $t("settings.fixedPairHint") }}
+        </p>
       </div>
     </div>
   </div>
@@ -36,58 +52,59 @@
 
 <script setup lang="ts">
 interface Participant {
-  id: number
-  name: string
-  participantId?: number
+  id: number;
+  name: string;
+  participantId?: number;
 }
 
 interface FixedPair {
-  drawerId: number
-  giftOwnerId: number
+  drawerId: number;
+  giftOwnerId: number;
 }
 
 interface Props {
-  participants: Participant[]
-  fixedPairs: FixedPair[]
-  isOpen: boolean
-  showIndex?: boolean
+  participants: Participant[];
+  fixedPairs: FixedPair[];
+  isOpen: boolean;
+  showIndex?: boolean;
 }
 
 interface Emits {
-  (e: 'toggle'): void
-  (e: 'add-pair', drawerId: number, giftId: number): void
-  (e: 'remove-pair', drawerId: number): void
+  (e: "toggle"): void;
+  (e: "add-pair", drawerId: number, giftId: number): void;
+  (e: "remove-pair", drawerId: number): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showIndex: true
-})
+  showIndex: true,
+});
 
-const emit = defineEmits<Emits>()
+const emit = defineEmits<Emits>();
 
-const localDrawerId = ref<number | null>(null)
-const localGiftId = ref<number | null>(null)
+const localDrawerId = ref<number | null>(null);
+const localGiftId = ref<number | null>(null);
 
 const getParticipantLabel = (participant: Participant | undefined) => {
-  if (!participant) return '?'
+  if (!participant) return "?";
   if (props.showIndex) {
-    const index = props.participants.findIndex(p => p.id === participant.id) + 1
-    return `#${index}`
+    const index =
+      props.participants.findIndex((p) => p.id === participant.id) + 1;
+    return `#${index}`;
   }
-  return participant.name
-}
+  return participant.name;
+};
 
 const getParticipantById = (id: number) => {
-  return props.participants.find(p => p.id === id || p.participantId === id)
-}
+  return props.participants.find((p) => p.id === id || p.participantId === id);
+};
 
 const addPair = () => {
   if (localDrawerId.value !== null && localGiftId.value !== null) {
-    emit('add-pair', localDrawerId.value, localGiftId.value)
-    localDrawerId.value = null
-    localGiftId.value = null
+    emit("add-pair", localDrawerId.value, localGiftId.value);
+    localDrawerId.value = null;
+    localGiftId.value = null;
   }
-}
+};
 </script>
 
 <style scoped>

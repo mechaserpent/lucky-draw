@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "name": "lucky-draw",
   "private": true,
   "type": "module",
@@ -22,7 +22,8 @@
     "db:generate": "drizzle-kit generate",
     "v-major": "npm version major",
     "v-minor": "npm version minor",
-    "v-patch": "npm version patch"
+    "v-patch": "npm version patch",
+    "prepare": "husky"
   },
   "dependencies": {
     "@nuxtjs/i18n": "^10.2.1",
@@ -32,6 +33,20 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "drizzle-kit": "^0.30.6",
-    "nuxt": "^4.2.2"
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "nuxt": "^4.2.2",
+    "prettier": "^3.7.4"
+  },
+  "lint-staged": {
+    "*.{js,ts,vue}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.css": [
+      "prettier --write"
+    ]
   }
 }

@@ -1,11 +1,14 @@
 <template>
   <div>
     <header>
-      <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{
-        dynamicConfig.settings.value.siteIconRight }}</h1>
+      <h1>
+        {{ dynamicConfig.settings.value.siteIconLeft }}
+        {{ dynamicConfig.settings.value.siteTitle }}
+        {{ dynamicConfig.settings.value.siteIconRight }}
+      </h1>
       <p>
-        <span class="mode-badge solo">🖥️ 主持模式</span>
-        主持人控制
+        <span class="mode-badge solo">🖥️ {{ $t("home.soloMode") }}</span>
+        {{ $t("game.hostControl") }}
       </p>
     </header>
 
@@ -13,40 +16,77 @@
     <template v-if="state.phase === 'setup'">
       <!-- 參與者管理 -->
       <div class="card">
-        <h2>👥 參與者名單 <span class="count-badge">({{ state.participants.length }}人)</span></h2>
+        <h2>
+          👥 {{ $t("game.participants") }}
+          <span class="count-badge"
+            >({{ state.participants.length }}{{ $t("common.players") }})</span
+          >
+        </h2>
 
         <div class="participants-grid">
-          <div v-for="(p, idx) in state.participants" :key="p.id" class="participant-item">
+          <div
+            v-for="(p, idx) in state.participants"
+            :key="p.id"
+            class="participant-item"
+          >
             <span class="number">{{ idx + 1 }}</span>
-            <input type="text" :value="p.name"
-              @change="(e) => updateParticipant(p.id, (e.target as HTMLInputElement).value)" autocomplete="off">
-            <button class="btn-icon" @click="removeParticipant(p.id)" title="刪除">🗑️</button>
+            <input
+              type="text"
+              :value="p.name"
+              @change="
+                (e) =>
+                  updateParticipant(p.id, (e.target as HTMLInputElement).value)
+              "
+              autocomplete="off"
+            />
+            <button
+              class="btn-icon"
+              @click="removeParticipant(p.id)"
+              :title="$t('common.delete')"
+            >
+              🗑️
+            </button>
           </div>
         </div>
 
         <div class="add-participant">
-          <input type="text" class="input" v-model="newParticipantName" placeholder="輸入新參與者姓名..."
-            @keypress.enter="handleAddParticipant" autocomplete="off">
-          <button class="btn btn-secondary" @click="handleAddParticipant">➕ 新增</button>
+          <input
+            type="text"
+            class="input"
+            v-model="newParticipantName"
+            :placeholder="$t('game.addParticipant')"
+            @keypress.enter="handleAddParticipant"
+            autocomplete="off"
+          />
+          <button class="btn btn-secondary" @click="handleAddParticipant">
+            ➕ {{ $t("common.add") }}
+          </button>
         </div>
       </div>
 
       <!-- 抽獎設定 -->
       <div class="card">
-        <h2>⚙️ 抽獎設定</h2>
+        <h2>⚙️ {{ $t("game.drawSettings") }}</h2>
 
         <div class="start-options">
           <label>
-            <input type="radio" v-model="state.startMode" value="random">
-            隨機決定第一位抽獎者
+            <input type="radio" v-model="state.startMode" value="random" />
+            {{ $t("game.randomFirst") }}
           </label>
           <label>
-            <input type="radio" v-model="state.startMode" value="manual">
-            手動指定：
+            <input type="radio" v-model="state.startMode" value="manual" />
+            {{ $t("game.manualFirst") }}：
           </label>
-          <select v-model="state.manualStarterId" :disabled="state.startMode !== 'manual'">
-            <option :value="null">選擇參與者</option>
-            <option v-for="(p, idx) in state.participants" :key="p.id" :value="p.id">
+          <select
+            v-model="state.manualStarterId"
+            :disabled="state.startMode !== 'manual'"
+          >
+            <option :value="null">{{ $t("game.selectParticipant") }}</option>
+            <option
+              v-for="(p, idx) in state.participants"
+              :key="p.id"
+              :value="p.id"
+            >
               {{ idx + 1 }}. {{ p.name }}
             </option>
           </select>
@@ -57,28 +97,33 @@
           :participants="state.participants"
           :fixed-pairs="state.fixedPairs"
           :is-open="showAdvanced"
-          @toggle="showAdvancedModal = true"
+          @toggle="handleAdvancedToggle"
           @add-pair="handleAddFixedPair"
           @remove-pair="removeFixedPair"
         />
 
         <div class="seed-display">
-          🎲 Seed: {{ state.seed }}
-          <button class="btn btn-secondary btn-sm" @click="showResetSeedModal = true">重設 Seed</button>
+          🎲 {{ $t("common.seed") }}: {{ state.seed }}
+          <button
+            class="btn btn-secondary btn-sm"
+            @click="showResetSeedModal = true"
+          >
+            {{ $t("game.resetSeed") }}
+          </button>
         </div>
 
         <div class="controls">
           <button class="btn btn-primary" @click="handleStartDraw">
-            🎲 開始抽獎
+            🎲 {{ $t("game.startGame") }}
           </button>
           <button class="btn btn-danger" @click="showResetAllModal = true">
-            🗑️ 重置全部
+            🗑️ {{ $t("game.resetAll") }}
           </button>
           <button class="btn btn-secondary" @click="showClearCacheModal = true">
-            🧹 清除緩存
+            🧹 {{ $t("game.clearCache") }}
           </button>
           <button class="btn btn-secondary" @click="router.push('/')">
-            🏠 返回首頁
+            🏠 {{ $t("common.home") }}
           </button>
         </div>
       </div>
@@ -94,9 +139,10 @@
           :total-count="state.participants.length"
           :can-draw="!hasDrawnCurrent"
           :is-last-draw="state.currentIndex >= state.participants.length - 1"
+          :actual-result="lastDrawResult"
           @draw="handlePerformDraw"
           @next="handleNextDraw"
-          @complete="celebrate"
+          @complete="handleComplete"
         />
       </div>
 
@@ -105,26 +151,27 @@
 
       <div class="controls">
         <button class="btn btn-secondary" @click="showViewSettingsModal = true">
-          👁️ 查看設定
+          👁️ {{ $t("game.viewSettings") }}
         </button>
         <button class="btn btn-danger" @click="showResetAllModal = true">
-          🔄 重新開始
+          🔄 {{ $t("game.restart") }}
         </button>
       </div>
     </template>
 
     <!-- 進度側邊面板 -->
-    <ProgressPanel 
+    <ProgressPanel
       v-if="state.phase === 'drawing' || state.phase === 'complete'"
       :drawn-count="state.results.length"
       :total-count="state.participants.length"
       :players="progressPlayers"
-    /> <!-- 完成階段 - 跳轉至結果頁面 -->
+    />
+    <!-- 完成階段 - 跳轉至結果頁面 -->
     <template v-if="state.phase === 'complete'">
       <div class="loading-overlay">
         <div class="loading-content">
           <div class="loading-spinner">🎉</div>
-          <h2>正在準備結果頁面...</h2>
+          <h2>{{ $t("game.preparing") }}</h2>
         </div>
       </div>
     </template>
@@ -134,8 +181,8 @@
     <!-- 進階選項密碼驗證 -->
     <PasswordModal
       v-model="showAdvancedModal"
-      title="進階選項驗證"
-      confirm-text="確認"
+      :title="$t('modal.advancedVerify')"
+      :confirm-text="$t('common.confirm')"
       confirm-button-class="btn-primary"
       @confirm="confirmAdvanced"
     />
@@ -143,48 +190,88 @@
     <!-- 重設 Seed -->
     <PasswordModal
       v-model="showResetSeedModal"
-      title="重設 Seed"
-      confirm-text="確認重設"
+      :title="$t('modal.resetSeedTitle')"
+      :confirm-text="$t('modal.confirmReset')"
       @confirm="confirmResetSeed"
     />
 
     <!-- 重置全部 -->
     <PasswordModal
       v-model="showResetAllModal"
-      title="重置全部"
-      description="這將清除所有資料並回到設定頁面"
-      confirm-text="確認重置"
+      :title="$t('modal.resetAllTitle')"
+      :description="$t('modal.resetAllDesc')"
+      :confirm-text="$t('modal.confirmReset')"
       @confirm="confirmResetAll"
     />
 
     <!-- 清除緩存 -->
     <PasswordModal
       v-model="showClearCacheModal"
-      title="清除緩存"
+      :title="$t('modal.clearCacheTitle')"
       icon="🧹"
-      description="這將清除所有本地儲存資料，包括密碼設定。"
-      confirm-text="確認清除"
+      :description="$t('modal.clearCacheDesc')"
+      :confirm-text="$t('modal.confirmClear')"
       @confirm="confirmClearCache"
     />
 
     <!-- 查看設定 -->
-    <div class="modal-overlay" v-if="showViewSettingsModal" @click.self="showViewSettingsModal = false">
-      <div class="modal-content" style="max-width: 600px;">
-        <h3>📋 目前設定</h3>
-        <div style="text-align: left; max-height: 400px; overflow-y: auto; margin: 20px 0;">
-          <p><strong>🎲 Seed:</strong> {{ state.seed }}</p>
-          <p><strong>👥 參與者 ({{ state.participants.length }}人):</strong></p>
-          <div style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0;">
-            <span v-for="(p, i) in state.participants" :key="p.id"
-              style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px;">
+    <div
+      class="modal-overlay"
+      v-if="showViewSettingsModal"
+      @click.self="showViewSettingsModal = false"
+    >
+      <div class="modal-content" style="max-width: 600px">
+        <h3>📋 {{ $t("game.currentSettings") }}</h3>
+        <div
+          style="
+            text-align: left;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 20px 0;
+          "
+        >
+          <p>
+            <strong>🎲 {{ $t("common.seed") }}:</strong> {{ state.seed }}
+          </p>
+          <p>
+            <strong
+              >👥 {{ $t("game.participants") }} ({{ state.participants.length
+              }}{{ $t("common.players") }}):</strong
+            >
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0">
+            <span
+              v-for="(p, i) in state.participants"
+              :key="p.id"
+              style="
+                background: rgba(255, 255, 255, 0.1);
+                padding: 4px 8px;
+                border-radius: 4px;
+              "
+            >
               {{ i + 1 }}. {{ p.name }}
             </span>
           </div>
-          <p><strong>🎯 起始模式:</strong> {{ state.startMode === 'random' ? '隨機' : '手動指定' }}</p>
-          <p><strong>📊 目前進度:</strong> {{ state.results.length }} / {{ state.participants.length }}</p>
+          <p>
+            <strong>🎯 {{ $t("game.startMode") }}:</strong>
+            {{
+              state.startMode === "random"
+                ? $t("game.random")
+                : $t("game.manual")
+            }}
+          </p>
+          <p>
+            <strong>📊 {{ $t("game.progress") }}:</strong>
+            {{ state.results.length }} / {{ state.participants.length }}
+          </p>
         </div>
         <div class="modal-buttons">
-          <button class="btn btn-primary" @click="showViewSettingsModal = false">返回抽獎</button>
+          <button
+            class="btn btn-primary"
+            @click="showViewSettingsModal = false"
+          >
+            {{ $t("game.backToDraw") }}
+          </button>
         </div>
       </div>
     </div>
@@ -192,18 +279,36 @@
     <!-- 首次使用設定密碼 -->
     <div class="modal-overlay" v-if="showPasswordSetup">
       <div class="modal-content">
-        <h3>🔐 設定管理員密碼</h3>
-        <p style="font-size: 0.9rem; margin-bottom: 15px; opacity: 0.8;">
-          此密碼用於保護重置功能，防止誤操作
+        <h3>🔐 {{ $t("settings.setPassword") }}</h3>
+        <p style="font-size: 0.9rem; margin-bottom: 15px; opacity: 0.8">
+          {{ $t("settings.passwordHint") }}
         </p>
 
-        <input type="password" class="input" v-model="newPassword" placeholder="設定新密碼..." style="margin-bottom: 10px;"
-          autocomplete="new-password" data-lpignore="true" data-form-type="other">
-        <input type="password" class="input" v-model="confirmPassword" placeholder="確認密碼..."
-          @keypress.enter="setupPassword" autocomplete="new-password" data-lpignore="true" data-form-type="other">
+        <input
+          type="password"
+          class="input"
+          v-model="newPassword"
+          :placeholder="$t('settings.setPassword') + '...'"
+          style="margin-bottom: 10px"
+          autocomplete="new-password"
+          data-lpignore="true"
+          data-form-type="other"
+        />
+        <input
+          type="password"
+          class="input"
+          v-model="confirmPassword"
+          :placeholder="$t('settings.confirmPassword') + '...'"
+          @keypress.enter="setupPassword"
+          autocomplete="new-password"
+          data-lpignore="true"
+          data-form-type="other"
+        />
 
         <div class="modal-buttons">
-          <button class="btn btn-primary" @click="setupPassword">設定密碼</button>
+          <button class="btn btn-primary" @click="setupPassword">
+            {{ $t("settings.setPassword") }}
+          </button>
         </div>
       </div>
     </div>
@@ -220,11 +325,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from "vue";
 
-const router = useRouter()
-const dynamicConfig = useDynamicConfig()
-const { addRecord: addHistoryRecord } = useHistory()
+const { t } = useI18n();
+const router = useRouter();
+const dynamicConfig = useDynamicConfig();
+const { addRecord: addHistoryRecord } = useHistory();
 const {
   state,
   loadState,
@@ -244,266 +350,323 @@ const {
   clearAllCache,
   verifyPassword,
   getPassword,
-  setPassword
-} = useGameState()
+  setPassword,
+} = useGameState();
 
-const { generateResultImage, downloadImage, shareImage, getSocialShareLinks, copyImageToClipboard } = useShareImage()
+const {
+  generateResultImage,
+  downloadImage,
+  shareImage,
+  getSocialShareLinks,
+  copyImageToClipboard,
+} = useShareImage();
 
 // 彈窗控制
-const showAdvancedModal = ref(false)
-const showResetSeedModal = ref(false)
-const showResetAllModal = ref(false)
-const showClearCacheModal = ref(false)
-const showViewSettingsModal = ref(false)
-const showAdvanced = ref(false)
-const showPasswordSetup = ref(false)
-const showShareModal = ref(false)
+const showAdvancedModal = ref(false);
+const showResetSeedModal = ref(false);
+const showResetAllModal = ref(false);
+const showClearCacheModal = ref(false);
+const showViewSettingsModal = ref(false);
+const showAdvanced = ref(false);
+const showPasswordSetup = ref(false);
+const showShareModal = ref(false);
 
 // 表單數據
-const newParticipantName = ref('')
-const fixedDrawerId = ref<number | null>(null)
-const fixedGiftId = ref<number | null>(null)
-const advancedPassword = ref('')
-const resetPassword = ref('')
-const newPassword = ref('')
-const confirmPassword = ref('')
+const newParticipantName = ref("");
+const fixedDrawerId = ref<number | null>(null);
+const fixedGiftId = ref<number | null>(null);
+const advancedPassword = ref("");
+const resetPassword = ref("");
+const newPassword = ref("");
+const confirmPassword = ref("");
 
 // 抽獎動畫
-const isDrawing = ref(false)
-const showResult = ref(false)
-const drawBoxContent = ref('🎁')
-const resultGiftOwner = ref('')
-const hasDrawnCurrent = ref(false)
+const isDrawing = ref(false);
+const showResult = ref(false);
+const drawBoxContent = ref("🎁");
+const resultGiftOwner = ref("");
+const hasDrawnCurrent = ref(false);
+const hasAddedHistory = ref(false);
+const lastDrawResult = ref<{
+  drawerName: string;
+  giftOwnerName: string;
+} | null>(null);
 
 onMounted(() => {
-  loadState()
+  loadState();
 
-  // 檢查是否需要設定密碼
-  if (!getPassword()) {
-    showPasswordSetup.value = true
+  // 檢查是否需要設定密碼（僅在啟用密碼保護時）
+  if (dynamicConfig.settings.value.passwordProtection && !getPassword()) {
+    showPasswordSetup.value = true;
   }
 
   // 恢復抽獎狀態
-  if (state.value.phase === 'drawing' && state.value.results.length > state.value.currentIndex) {
-    hasDrawnCurrent.value = true
-    const lastResult = state.value.results[state.value.currentIndex]
-    const giftOwner = getParticipant(lastResult.giftOwnerId)
+  if (
+    state.value.phase === "drawing" &&
+    state.value.results.length > state.value.currentIndex
+  ) {
+    hasDrawnCurrent.value = true;
+    const lastResult = state.value.results[state.value.currentIndex];
+    const giftOwner = getParticipant(lastResult.giftOwnerId);
     if (giftOwner) {
-      drawBoxContent.value = giftOwner.name.charAt(0)
-      resultGiftOwner.value = giftOwner.name
-      showResult.value = true
+      drawBoxContent.value = giftOwner.name.charAt(0);
+      resultGiftOwner.value = giftOwner.name;
+      showResult.value = true;
     }
   }
-})
+});
 
 // 設定密碼
 function setupPassword() {
   if (!newPassword.value) {
-    alert('請輸入密碼！')
-    return
+    alert(t("error.pleaseEnterPassword"));
+    return;
   }
   if (newPassword.value !== confirmPassword.value) {
-    alert('兩次密碼不一致！')
-    return
+    alert(t("error.passwordMismatch"));
+    return;
   }
 
-  setPassword(newPassword.value)
-  showPasswordSetup.value = false
-  alert('密碼設定成功！')
+  setPassword(newPassword.value);
+  showPasswordSetup.value = false;
+  alert(t("notifications.passwordSet"));
 }
 
 // 獲取參與者索引
 function getParticipantIndex(id: number): number {
-  return state.value.participants.findIndex(p => p.id === id) + 1
+  return state.value.participants.findIndex((p) => p.id === id) + 1;
 }
 
 // 新增參與者
 function handleAddParticipant() {
-  if (!newParticipantName.value.trim()) return
-  addParticipant(newParticipantName.value.trim())
-  newParticipantName.value = ''
+  if (!newParticipantName.value.trim()) return;
+  addParticipant(newParticipantName.value.trim());
+  newParticipantName.value = "";
 }
 
 // 新增進階配對
 function handleAddFixedPair(drawerId: number, giftId: number) {
   if (drawerId === giftId) {
-    alert('A 和 B 不能相同！')
-    return
+    alert(t("errors.sameAB"));
+    return;
   }
 
   if (!addFixedPair(drawerId, giftId)) {
-    alert('此項目已存在設定')
-    return
+    alert(t("errors.alreadyExists"));
+    return;
   }
 }
 
 // Computed properties for components
 const formattedResults = computed(() => {
-  return state.value.results.map(r => ({
+  return state.value.results.map((r) => ({
     order: r.order,
-    drawerName: getParticipant(r.drawerId)?.name || '?',
-    giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
-  }))
-})
+    drawerName: getParticipant(r.drawerId)?.name || "?",
+    giftOwnerName: getParticipant(r.giftOwnerId)?.name || "?",
+  }));
+});
 
 const progressPlayers = computed(() => {
   return state.value.participants.map((p, idx) => ({
     id: p.id,
     name: `${idx + 1}. ${p.name}`,
     isCurrent: state.value.drawOrder[state.value.currentIndex] === p.id,
-    hasDrawn: state.value.results.some((r: any) => r.drawerId === p.id)
-  }))
-})
+    hasDrawn: state.value.results.some((r: any) => r.drawerId === p.id),
+  }));
+});
+
+// 處理進階選項開關
+function handleAdvancedToggle() {
+  // 如果密碼保護已關閉，直接打開進階設定
+  if (!dynamicConfig.settings.value.passwordProtection) {
+    showAdvanced.value = !showAdvanced.value;
+    return;
+  }
+  // 否則顯示密碼驗證彈窗
+  showAdvancedModal.value = true;
+}
 
 // 確認進階選項
 function confirmAdvanced(password: string) {
   if (!verifyPassword(password)) {
-    alert('密碼錯誤！')
-    return
+    alert(t("error.wrongPassword"));
+    return;
   }
 
-  showAdvancedModal.value = false
-  showAdvanced.value = true
+  showAdvancedModal.value = false;
+  showAdvanced.value = true;
 }
 
 // 確認重設 Seed
 function confirmResetSeed(password: string) {
   if (!verifyPassword(password)) {
-    alert('密碼錯誤！')
-    return
+    alert(t("error.wrongPassword"));
+    return;
   }
 
-  resetSeed()
-  showResetSeedModal.value = false
-  alert('Seed 已重設為: ' + state.value.seed)
+  resetSeed();
+  showResetSeedModal.value = false;
+  alert(t("notifications.seedReset", { seed: state.value.seed }));
 }
 
 // 確認重置全部
 function confirmResetAll(password: string) {
   if (!verifyPassword(password)) {
-    alert('密碼錯誤！')
-    return
+    alert(t("error.wrongPassword"));
+    return;
   }
 
-  resetAll()
-  showResetAllModal.value = false
-  showAdvanced.value = false
+  resetAll();
+  showResetAllModal.value = false;
+  showAdvanced.value = false;
 
   // 重置抽獎 UI 狀態
-  isDrawing.value = false
-  showResult.value = false
-  drawBoxContent.value = '🎁'
-  hasDrawnCurrent.value = false
+  isDrawing.value = false;
+  showResult.value = false;
+  drawBoxContent.value = "🎁";
+  hasDrawnCurrent.value = false;
 }
 
 // 確認清除緩存
 function confirmClearCache(password: string) {
   if (!verifyPassword(password)) {
-    alert('密碼錯誤！')
-    return
+    alert(t("error.wrongPassword"));
+    return;
   }
 
-  clearAllCache()
-  showClearCacheModal.value = false
-  alert('緩存已清除！頁面將重新載入。')
-  window.location.reload()
+  clearAllCache();
+  showClearCacheModal.value = false;
+  alert(t("notifications.cacheCleared"));
+  window.location.reload();
 }
 
 // 開始抽獎
 function handleStartDraw() {
   if (state.value.participants.length < 2) {
-    alert('至少需要 2 位參與者！')
-    return
+    alert(t("error.minParticipants"));
+    return;
   }
 
-  if (state.value.startMode === 'manual' && !state.value.manualStarterId) {
-    alert('請選擇起始抽獎者！')
-    return
+  if (state.value.startMode === "manual" && !state.value.manualStarterId) {
+    alert(t("error.selectStarter"));
+    return;
   }
 
   if (!startDraw()) {
-    alert('無法生成有效的抽獎序列，請檢查進階設定是否造成衝突')
-    return
+    alert(t("error.cannotGenerateSequence"));
+    return;
   }
 
-  hasDrawnCurrent.value = false
-  showResult.value = false
-  drawBoxContent.value = '🎁'
+  hasDrawnCurrent.value = false;
+  showResult.value = false;
+  drawBoxContent.value = "🎁";
+  lastDrawResult.value = null;
+  hasAddedHistory.value = false;
 }
 
 // 執行抽獎 - 由 RouletteAnimation 組件調用
 function handlePerformDraw() {
   // 記錄結果（動畫由 RouletteAnimation 組件處理）
-  const result = performDraw()
+  const result = performDraw();
   if (result) {
-    const giftOwner = getParticipant(result.giftOwnerId)
+    const drawer = getParticipant(result.drawerId);
+    const giftOwner = getParticipant(result.giftOwnerId);
     if (giftOwner) {
-      resultGiftOwner.value = giftOwner.name
+      resultGiftOwner.value = giftOwner.name;
     }
+    // 儲存實際抽獎結果供動畫組件使用
+    lastDrawResult.value = {
+      drawerName: drawer?.name || "?",
+      giftOwnerName: giftOwner?.name || "?",
+    };
   }
 
-  hasDrawnCurrent.value = true
+  hasDrawnCurrent.value = true;
 }
 
 // 下一位抽獎 - 由 RouletteAnimation 組件調用
 function handleNextDraw() {
   if (nextDraw()) {
-    hasDrawnCurrent.value = false
+    hasDrawnCurrent.value = false;
+    lastDrawResult.value = null;
   }
 }
 
 // 分享結果 - 打開分享選單
 function shareResults() {
-  showShareModal.value = true
+  showShareModal.value = true;
 }
 
 // Toast 提示處理
 function handleToast(message: string) {
-  alert(message)
+  alert(message);
+}
+
+// 處理完成抽獎（防止重複添加歷史紀錄）
+function handleComplete() {
+  if (hasAddedHistory.value) {
+    // 已經添加過歷史紀錄，直接跳轉
+    const resultId = `solo_${state.value.seed}_${Date.now()}`;
+    router.push({ path: "/result", query: { id: resultId } });
+    return;
+  }
+  celebrate();
 }
 
 // 慶祝動畫
 function celebrate() {
+  // 防止重複添加
+  if (hasAddedHistory.value) return;
+  hasAddedHistory.value = true;
+
   // 保存歷史紀錄和結果
   if (state.value.results.length > 0) {
-    const resultsData = state.value.results.map(r => ({
+    const resultsData = state.value.results.map((r) => ({
       order: r.order,
-      drawerName: getParticipant(r.drawerId)?.name || '?',
-      giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
-    }))
+      drawerName: getParticipant(r.drawerId)?.name || "?",
+      giftOwnerName: getParticipant(r.giftOwnerId)?.name || "?",
+    }));
 
     addHistoryRecord({
-      mode: 'solo',
+      mode: "solo",
       seed: state.value.seed,
       participantCount: state.value.participants.length,
-      results: resultsData
-    })
+      results: resultsData,
+    });
 
     // 保存結果到 localStorage 供 result 頁面使用
-    const resultId = `solo_${state.value.seed}_${Date.now()}`
+    const resultId = `solo_${state.value.seed}_${Date.now()}`;
     const resultData = {
       id: resultId,
-      mode: 'solo',
+      mode: "solo",
       seed: state.value.seed,
       participantCount: state.value.participants.length,
-      results: resultsData
-    }
-    localStorage.setItem(`result_${resultId}`, JSON.stringify(resultData))
+      results: resultsData,
+    };
+    localStorage.setItem(`result_${resultId}`, JSON.stringify(resultData));
 
     // 跳轉到結果頁面
     setTimeout(() => {
-      router.push({ path: '/result', query: { id: resultId } })
-    }, 2000) // 延遲 2 秒讓動畫播放
+      router.push({ path: "/result", query: { id: resultId } });
+    }, 2000); // 延遲 2 秒讓動畫播放
   }
 
-  const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7']
-  const container = document.createElement('div')
-  container.className = 'celebration'
-  container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;'
-  document.body.appendChild(container)
+  const colors = [
+    "#ffd700",
+    "#ff6b6b",
+    "#4ecdc4",
+    "#45b7d1",
+    "#96ceb4",
+    "#ffeaa7",
+  ];
+  const container = document.createElement("div");
+  container.className = "celebration";
+  container.style.cssText =
+    "position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;";
+  document.body.appendChild(container);
 
   for (let i = 0; i < 100; i++) {
-    const confetti = document.createElement('div')
+    const confetti = document.createElement("div");
     confetti.style.cssText = `
       position:absolute;
       width:${Math.random() * 10 + 5}px;
@@ -513,24 +676,24 @@ function celebrate() {
       top:-20px;
       animation:confetti-fall 3s ease-out forwards;
       animation-delay:${Math.random() * 2}s;
-    `
-    container.appendChild(confetti)
+    `;
+    container.appendChild(confetti);
   }
 
   // 添加動畫 keyframes
-  if (!document.getElementById('confetti-style')) {
-    const style = document.createElement('style')
-    style.id = 'confetti-style'
+  if (!document.getElementById("confetti-style")) {
+    const style = document.createElement("style");
+    style.id = "confetti-style";
     style.textContent = `
       @keyframes confetti-fall {
         0% { opacity: 1; transform: translateY(0) rotate(0deg); }
         100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
       }
-    `
-    document.head.appendChild(style)
+    `;
+    document.head.appendChild(style);
   }
 
-  setTimeout(() => container.remove(), 5000)
+  setTimeout(() => container.remove(), 5000);
 }
 </script>
 
@@ -777,13 +940,18 @@ function celebrate() {
 }
 
 .draw-box::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(
+    45deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
   transform: rotate(45deg);
   animation: shine 3s infinite;
 }
@@ -808,7 +976,6 @@ function celebrate() {
 }
 
 @keyframes shuffle {
-
   0%,
   100% {
     transform: translateY(0) scale(1);
@@ -820,13 +987,21 @@ function celebrate() {
 }
 
 @keyframes shake {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0) rotate(0deg);
   }
-  10%, 30%, 50%, 70%, 90% {
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-5px) rotate(-2deg);
   }
-  20%, 40%, 60%, 80% {
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(5px) rotate(2deg);
   }
 }
@@ -1171,7 +1346,6 @@ function celebrate() {
 }
 
 @keyframes bounce {
-
   0%,
   100% {
     transform: translateY(0) rotate(0deg);

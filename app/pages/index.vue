@@ -1,228 +1,355 @@
 <template>
   <div>
     <header>
-      <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{ dynamicConfig.settings.value.siteIconRight }}</h1>
+      <h1>
+        {{ dynamicConfig.settings.value.siteIconLeft }}
+        {{ dynamicConfig.settings.value.siteTitle }}
+        {{ dynamicConfig.settings.value.siteIconRight }}
+      </h1>
       <p>{{ dynamicConfig.settings.value.siteSubtitle }}</p>
     </header>
 
     <div class="card">
-      <h2>🎮 選擇遊戲模式</h2>
-      
+      <h2>🎮 {{ $t("home.title") }}</h2>
+
       <div class="mode-grid">
         <div class="mode-card" @click="showSoloModal = true">
           <div class="mode-icon">🖥️</div>
-          <h3>主持模式</h3>
-          <p>由主持人操作所有抽獎流程，適合投影到大螢幕</p>
+          <h3>{{ $t("home.soloMode") }}</h3>
+          <p>{{ $t("home.soloDesc") }}</p>
         </div>
-        
+
         <div class="mode-card" @click="showOnlineModal = true">
           <div class="mode-icon">🌐</div>
-          <h3>連線模式</h3>
-          <p>每個人用自己的裝置加入房間，輪到時自己抽獎</p>
+          <h3>{{ $t("home.onlineMode") }}</h3>
+          <p>{{ $t("home.onlineDesc") }}</p>
         </div>
       </div>
     </div>
 
-    <div class="card privacy-info" style="text-align: center;">
-      <p style="opacity: 0.7; font-size: 0.9rem;">
-        🔒 <strong>主持模式</strong>：資料僅存在本地瀏覽器
+    <div class="card privacy-info" style="text-align: center">
+      <p style="opacity: 0.7; font-size: 0.9rem">
+        🔒 <strong>{{ $t("home.soloMode") }}</strong
+        >：{{ $t("home.privacyInfo.solo").split("：")[1] }}
       </p>
-      <p style="opacity: 0.7; font-size: 0.9rem;">
-        🌐 <strong>連線模式</strong>：房間資料暫存於伺服器，關閉後 30 分鐘自動清除
+      <p style="opacity: 0.7; font-size: 0.9rem">
+        🌐 <strong>{{ $t("home.onlineMode") }}</strong
+        >：{{ $t("home.privacyInfo.online").split("：")[1] }}
       </p>
     </div>
 
     <!-- 歷史紀錄 -->
     <div class="card" v-if="historyRecords.length > 0">
       <div class="history-header">
-        <h2>📜 先前紀錄</h2>
-        <button class="btn btn-sm btn-danger" @click="showClearHistoryConfirm = true">
-          🗑️ 清除全部
+        <h2>📜 {{ $t("home.history.title") }}</h2>
+        <button
+          class="btn btn-sm btn-danger"
+          @click="showClearHistoryConfirm = true"
+        >
+          🗑️ {{ $t("home.history.clearAll") }}
         </button>
       </div>
-      
+
       <div class="history-list">
-        <div 
-          v-for="record in historyRecords.slice(0, showAllHistory ? undefined : 5)" 
+        <div
+          v-for="record in historyRecords.slice(
+            0,
+            showAllHistory ? undefined : 5,
+          )"
           :key="record.id"
           class="history-item"
           @click="toggleHistoryExpand(record.id)"
         >
           <div class="history-summary">
-            <span class="history-mode">{{ record.mode === 'solo' ? '🖥️' : '🌐' }}</span>
+            <span class="history-mode">{{
+              record.mode === "solo" ? "🖥️" : "🌐"
+            }}</span>
             <span class="history-info">
-              {{ record.participantCount }} 人 · {{ formatHistoryTime(record.timestamp) }}
+              {{ record.participantCount }} {{ $t("common.players") }} ·
+              {{ formatHistoryTime(record.timestamp) }}
             </span>
-            <span class="history-expand">{{ expandedHistory === record.id ? '▼' : '▶' }}</span>
+            <span class="history-expand">{{
+              expandedHistory === record.id ? "▼" : "▶"
+            }}</span>
           </div>
-          
+
           <div v-if="expandedHistory === record.id" class="history-details">
             <div class="history-results">
-              <div v-for="r in record.results" :key="r.order" class="history-result-item">
+              <div
+                v-for="r in record.results"
+                :key="r.order"
+                class="history-result-item"
+              >
                 {{ r.order }}. {{ r.drawerName }} ➡️ {{ r.giftOwnerName }}
               </div>
             </div>
-            <div class="history-seed">🎲 Seed: {{ record.seed }}</div>
+            <div class="history-seed">
+              🎲 {{ $t("common.seed") }}: {{ record.seed }}
+            </div>
           </div>
         </div>
-        
-        <button 
-          v-if="historyRecords.length > 5 && !showAllHistory" 
-          class="btn btn-sm btn-secondary" 
-          style="width: 100%; margin-top: 10px;"
+
+        <button
+          v-if="historyRecords.length > 5 && !showAllHistory"
+          class="btn btn-sm btn-secondary"
+          style="width: 100%; margin-top: 10px"
           @click.stop="showAllHistory = true"
         >
-          顯示更多 ({{ historyRecords.length - 5 }} 筆)
+          {{ $t("home.history.showMore") }} ({{ historyRecords.length - 5 }})
         </button>
-        
-        <button 
-          v-if="showAllHistory && historyRecords.length > 5" 
-          class="btn btn-sm btn-secondary" 
-          style="width: 100%; margin-top: 10px;"
+
+        <button
+          v-if="showAllHistory && historyRecords.length > 5"
+          class="btn btn-sm btn-secondary"
+          style="width: 100%; margin-top: 10px"
           @click.stop="showAllHistory = false"
         >
-          收起
+          {{ $t("home.history.collapse") }}
         </button>
       </div>
     </div>
 
     <!-- 清除歷史確認彈窗 -->
-    <div class="modal-overlay" v-if="showClearHistoryConfirm" @click.self="showClearHistoryConfirm = false">
+    <div
+      class="modal-overlay"
+      v-if="showClearHistoryConfirm"
+      @click.self="showClearHistoryConfirm = false"
+    >
       <div class="modal-content">
-        <h3>⚠️ 確認清除</h3>
-        <p style="margin: 15px 0;">確定要清除所有歷史紀錄嗎？此操作無法復原。</p>
+        <h3>⚠️ {{ $t("modal.confirmClear") }}</h3>
+        <p style="margin: 15px 0">{{ $t("home.history.confirmClear") }}</p>
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showClearHistoryConfirm = false">取消</button>
-          <button class="btn btn-danger" @click="handleClearHistory">確認清除</button>
+          <button
+            class="btn btn-secondary"
+            @click="showClearHistoryConfirm = false"
+          >
+            {{ $t("common.cancel") }}
+          </button>
+          <button class="btn btn-danger" @click="handleClearHistory">
+            {{ $t("common.confirm") }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 主持模式彈窗 -->
-    <div class="modal-overlay" v-if="showSoloModal" @click.self="showSoloModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showSoloModal"
+      @click.self="showSoloModal = false"
+    >
       <div class="modal-content">
-        <h3>🖥️ 主持模式設定</h3>
-        
-        <NumPad 
+        <h3>🖥️ {{ $t("modal.soloSetup") }}</h3>
+
+        <NumPad
           v-model="soloPlayerCount"
           :min="dynamicConfig.fixedConfig.minPlayers"
           :max="dynamicConfig.fixedConfig.maxPlayers"
-          label="參與人數"
-          :hint="`可輸入 ${dynamicConfig.fixedConfig.minPlayers} ~ ${dynamicConfig.fixedConfig.maxPlayers} 人`"
+          :label="$t('modal.playerCount')"
+          :hint="
+            $t('modal.playerCountHint', {
+              min: dynamicConfig.fixedConfig.minPlayers,
+              max: dynamicConfig.fixedConfig.maxPlayers,
+            })
+          "
           @confirm="startSoloMode"
         />
-        
-        <div class="modal-buttons" style="margin-top: 20px;">
-          <button class="btn btn-secondary" @click="showSoloModal = false">取消</button>
-          <button class="btn btn-primary" @click="startSoloMode">開始遊戲</button>
+
+        <div class="modal-buttons" style="margin-top: 20px">
+          <button class="btn btn-secondary" @click="showSoloModal = false">
+            {{ $t("common.cancel") }}
+          </button>
+          <button class="btn btn-primary" @click="startSoloMode">
+            {{ $t("common.startGame") }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 連線模式彈窗 -->
-    <div class="modal-overlay" v-if="showOnlineModal" @click.self="showOnlineModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showOnlineModal"
+      @click.self="showOnlineModal = false"
+    >
       <div class="modal-content">
-        <h3>🌐 連線模式</h3>
-        
+        <h3>🌐 {{ $t("home.onlineMode") }}</h3>
+
         <div class="online-options">
-          <button class="btn btn-primary btn-block" @click="showCreateRoomModal = true; showOnlineModal = false">
-            ➕ 建立新房間
+          <button
+            class="btn btn-primary btn-block"
+            @click="
+              showCreateRoomModal = true;
+              showOnlineModal = false;
+            "
+          >
+            ➕ {{ $t("modal.createRoom") }}
           </button>
-          
-          <div style="text-align: center; margin: 15px 0; opacity: 0.7;">或</div>
-          
-          <button class="btn btn-secondary btn-block" @click="showJoinRoomModal = true; showOnlineModal = false">
-            🚪 加入房間
+
+          <div style="text-align: center; margin: 15px 0; opacity: 0.7">
+            {{ $t("common.or") }}
+          </div>
+
+          <button
+            class="btn btn-secondary btn-block"
+            @click="
+              showJoinRoomModal = true;
+              showOnlineModal = false;
+            "
+          >
+            🚪 {{ $t("modal.joinRoom") }}
           </button>
         </div>
-        
-        <div class="modal-buttons" style="margin-top: 20px;">
-          <button class="btn btn-secondary" @click="showOnlineModal = false">取消</button>
+
+        <div class="modal-buttons" style="margin-top: 20px">
+          <button class="btn btn-secondary" @click="showOnlineModal = false">
+            {{ $t("common.cancel") }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 建立房間彈窗 -->
-    <div class="modal-overlay" v-if="showCreateRoomModal" @click.self="showCreateRoomModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showCreateRoomModal"
+      @click.self="showCreateRoomModal = false"
+    >
       <div class="modal-content">
-        <h3>➕ 建立新房間</h3>
-        
-        <div style="margin: 15px 0;">
-          <label style="display: block; margin-bottom: 8px;">你的名字</label>
-          <ClearableInput 
-            v-model="hostName" 
-            placeholder="輸入你的名字..."
+        <h3>➕ {{ $t("modal.createRoom") }}</h3>
+
+        <div style="margin: 15px 0">
+          <label style="display: block; margin-bottom: 8px">{{
+            $t("modal.yourName")
+          }}</label>
+          <ClearableInput
+            v-model="hostName"
+            :placeholder="$t('modal.enterName')"
             ref="createRoomNameInput"
           />
         </div>
-        
-        <NumPad 
+
+        <NumPad
           v-model="maxPlayers"
           :min="dynamicConfig.fixedConfig.minPlayers"
           :max="dynamicConfig.fixedConfig.onlineMaxPlayers"
-          label="房間人數上限"
-          :hint="`可輸入 ${dynamicConfig.fixedConfig.minPlayers} ~ ${dynamicConfig.fixedConfig.onlineMaxPlayers} 人`"
+          :label="$t('modal.maxPlayers')"
+          :hint="
+            $t('modal.playerCountHint', {
+              min: dynamicConfig.fixedConfig.minPlayers,
+              max: dynamicConfig.fixedConfig.onlineMaxPlayers,
+            })
+          "
           @confirm="createRoom"
         />
-        
-        <div class="modal-buttons" style="margin-top: 20px;">
-          <button class="btn btn-secondary" @click="showCreateRoomModal = false" :disabled="isCreatingRoom">取消</button>
-          <button class="btn btn-primary" @click="createRoom" :disabled="isCreatingRoom">
-            {{ isCreatingRoom ? '建立中...' : '建立房間' }}
+
+        <div class="modal-buttons" style="margin-top: 20px">
+          <button
+            class="btn btn-secondary"
+            @click="showCreateRoomModal = false"
+            :disabled="isCreatingRoom"
+          >
+            {{ $t("common.cancel") }}
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="createRoom"
+            :disabled="isCreatingRoom"
+          >
+            {{ isCreatingRoom ? $t("modal.creating") : $t("modal.createRoom") }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- 加入房間彈窗 -->
-    <div class="modal-overlay" v-if="showJoinRoomModal" @click.self="showJoinRoomModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showJoinRoomModal"
+      @click.self="showJoinRoomModal = false"
+    >
       <div class="modal-content">
-        <h3>{{ joinAsSpectator ? '👁️ 觀看房間' : '🚪 加入房間' }}</h3>
-        
+        <h3>
+          {{
+            joinAsSpectator
+              ? "👁️ " + $t("modal.watchRoom")
+              : "🚪 " + $t("modal.joinRoom")
+          }}
+        </h3>
+
         <div v-if="joinAsSpectator" class="spectator-notice">
-          <p>👁️ 你將以觀眾身份加入，只能觀看不能參與抽獎</p>
+          <p>👁️ {{ $t("modal.spectatorNotice") }}</p>
         </div>
-        
-        <div style="margin: 15px 0;">
-          <label style="display: block; margin-bottom: 8px;">房間代碼</label>
-          <ClearableInput 
-            v-model="joinRoomId" 
-            placeholder="輸入房間代碼..."
+
+        <div style="margin: 15px 0">
+          <label style="display: block; margin-bottom: 8px">{{
+            $t("modal.roomCode")
+          }}</label>
+          <ClearableInput
+            v-model="joinRoomId"
+            :placeholder="$t('modal.enterRoomCode')"
             input-style="text-transform: uppercase;"
           />
         </div>
-        
-        <div style="margin: 15px 0;">
-          <label style="display: block; margin-bottom: 8px;">你的名字</label>
-          <ClearableInput 
+
+        <div style="margin: 15px 0">
+          <label style="display: block; margin-bottom: 8px">{{
+            $t("modal.yourName")
+          }}</label>
+          <ClearableInput
             class="join-name-input"
-            v-model="playerName" 
-            placeholder="輸入你的名字..."
+            v-model="playerName"
+            :placeholder="$t('modal.enterName')"
           />
         </div>
-        
+
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showJoinRoomModal = false; joinAsSpectator = false" :disabled="isJoiningRoom">取消</button>
-          <button class="btn btn-primary" @click="joinRoom" :disabled="isJoiningRoom">
-            {{ isJoiningRoom ? '加入中...' : (joinAsSpectator ? '👁️ 開始觀看' : '加入房間') }}
+          <button
+            class="btn btn-secondary"
+            @click="
+              showJoinRoomModal = false;
+              joinAsSpectator = false;
+            "
+            :disabled="isJoiningRoom"
+          >
+            {{ $t("common.cancel") }}
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="joinRoom"
+            :disabled="isJoiningRoom"
+          >
+            {{
+              isJoiningRoom
+                ? $t("modal.joining")
+                : joinAsSpectator
+                  ? "👁️ " + $t("modal.startWatching")
+                  : $t("modal.joinRoom")
+            }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- 舊版主題設定彈窗（保留兼容） -->
-    <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showSettingsModal"
+      @click.self="showSettingsModal = false"
+    >
       <div class="modal-content modal-lg">
-        <h3>⚙️ 主題設定</h3>
-        <SettingsPanel @close="showSettingsModal = false" @saved="onSettingsSaved" @needsRefresh="onNeedsRefresh" />
+        <h3>⚙️ {{ $t("settings.theme") }}</h3>
+        <SettingsPanel
+          @close="showSettingsModal = false"
+          @saved="onSettingsSaved"
+          @needsRefresh="onNeedsRefresh"
+        />
       </div>
     </div>
 
     <!-- 錯誤提示 Toast -->
     <Transition name="toast">
-      <div v-if="showError" class="toast-error">
-        ❌ {{ errorMessage }}
-      </div>
+      <div v-if="showError" class="toast-error">❌ {{ errorMessage }}</div>
     </Transition>
 
     <!-- 成功/提示 Toast -->
@@ -231,126 +358,142 @@
         {{ infoMessage }}
       </div>
     </Transition>
-
   </div>
 </template>
 
 <script setup lang="ts">
-const router = useRouter()
-const route = useRoute()
-const dynamicConfig = useDynamicConfig()
-const { state, loadState, initGame, getPassword, setPassword } = useGameState()
-const { connect, createRoom: wsCreateRoom, joinRoom: wsJoinRoom, on, off, roomState, error } = useWebSocket()
-const { history: historyRecords, formatTime: formatHistoryTime, clearHistory } = useHistory()
+import { ref, watch, onMounted, nextTick } from "vue";
+
+const { t } = useI18n();
+const router = useRouter();
+const route = useRoute();
+const dynamicConfig = useDynamicConfig();
+const { state, loadState, initGame, getPassword, setPassword } = useGameState();
+const {
+  connect,
+  createRoom: wsCreateRoom,
+  joinRoom: wsJoinRoom,
+  on,
+  off,
+  roomState,
+  error,
+} = useWebSocket();
+const {
+  history: historyRecords,
+  formatTime: formatHistoryTime,
+  clearHistory,
+} = useHistory();
 
 // 生成隨機用戶名稱
 function generateRandomUsername(): string {
-  const randomNum = Math.floor(1000 + Math.random() * 9000) // 1000-9999
-  return `用戶${randomNum}`
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 1000-9999
+  return `${t("common.user")}${randomNum}`;
 }
 
 // 彈窗控制
-const showSoloModal = ref(false)
-const showOnlineModal = ref(false)
-const showCreateRoomModal = ref(false)
-const showJoinRoomModal = ref(false)
-const showSettingsModal = ref(false)
-const showClearHistoryConfirm = ref(false)
+const showSoloModal = ref(false);
+const showOnlineModal = ref(false);
+const showCreateRoomModal = ref(false);
+const showJoinRoomModal = ref(false);
+const showSettingsModal = ref(false);
+const showClearHistoryConfirm = ref(false);
 
 // 輸入框引用
-const createRoomNameInput = ref<any>(null)
+const createRoomNameInput = ref<any>(null);
 
 // 歷史紀錄控制
-const showAllHistory = ref(false)
-const expandedHistory = ref<string | null>(null)
+const showAllHistory = ref(false);
+const expandedHistory = ref<string | null>(null);
 
 // 表單數據
-const soloPlayerCount = ref(20)
-const hostName = ref(generateRandomUsername())
-const maxPlayers = ref(20)
-const joinRoomId = ref('')
-const playerName = ref(generateRandomUsername())
-const joinAsSpectator = ref(false)
+const soloPlayerCount = ref(20);
+const hostName = ref(generateRandomUsername());
+const maxPlayers = ref(20);
+const joinRoomId = ref("");
+const playerName = ref(generateRandomUsername());
+const joinAsSpectator = ref(false);
 
 // 錯誤提示
-const errorMessage = ref('')
-const showError = ref(false)
-const isCheckingRoom = ref(false)
+const errorMessage = ref("");
+const showError = ref(false);
+const isCheckingRoom = ref(false);
 
 // 資訊提示
-const infoMessage = ref('')
-const showInfoToast = ref(false)
+const infoMessage = ref("");
+const showInfoToast = ref(false);
 
 // 防重複點擊
-const isCreatingRoom = ref(false)
-const isJoiningRoom = ref(false)
+const isCreatingRoom = ref(false);
+const isJoiningRoom = ref(false);
 
 function showErrorToast(msg: string) {
-  errorMessage.value = msg
-  showError.value = true
+  errorMessage.value = msg;
+  showError.value = true;
   setTimeout(() => {
-    showError.value = false
-  }, 3000)
+    showError.value = false;
+  }, 3000);
 }
 
 function showInfo(msg: string) {
-  infoMessage.value = msg
-  showInfoToast.value = true
+  infoMessage.value = msg;
+  showInfoToast.value = true;
   setTimeout(() => {
-    showInfoToast.value = false
-  }, 10000)
+    showInfoToast.value = false;
+  }, 10000);
 }
 
 // 監視彈窗開啟，自動聚焦輸入框
 watch(showCreateRoomModal, (newVal) => {
   if (newVal) {
     nextTick(() => {
-      const input = createRoomNameInput.value?.$el?.querySelector('input')
-      if (input) input.focus()
-    })
+      const input = createRoomNameInput.value?.$el?.querySelector("input");
+      if (input) input.focus();
+    });
   }
-})
+});
 
 onMounted(async () => {
-  loadState()
-  
+  loadState();
+
   // 檢查 URL 參數是否有房間代碼
-  const roomCode = route.query.room as string
-  const isSpectator = route.query.spectator === 'true'
-  
+  const roomCode = route.query.room as string;
+  const isSpectator = route.query.spectator === "true";
+
   if (roomCode) {
-    const code = roomCode.toUpperCase()
-    isCheckingRoom.value = true
-    
+    const code = roomCode.toUpperCase();
+    isCheckingRoom.value = true;
+
     try {
       // 先檢查房間是否存在
-      const response = await $fetch(`/api/room/${code}`)
-      
+      const response = await $fetch(`/api/room/${code}`);
+
       if (response.exists) {
         // 檢查是否可以加入
         if (!response.canJoin) {
-          showErrorToast(`${response.reason || '無法加入此房間'}`)
-          return
+          showErrorToast(`${response.reason || t("error.cannotJoinRoom")}`);
+          return;
         }
-        
-        joinRoomId.value = code
-        joinAsSpectator.value = isSpectator
-        showJoinRoomModal.value = true
+
+        joinRoomId.value = code;
+        joinAsSpectator.value = isSpectator;
+        showJoinRoomModal.value = true;
         // 延遲聚焦到名字輸入框
         setTimeout(() => {
-          const nameInput = document.querySelector('.join-name-input') as HTMLInputElement
-          if (nameInput) nameInput.focus()
-        }, 100)
+          const nameInput = document.querySelector(
+            ".join-name-input",
+          ) as HTMLInputElement;
+          if (nameInput) nameInput.focus();
+        }, 100);
       } else {
-        showErrorToast(`房間 ${code} 不存在或已解散`)
+        showErrorToast(t("error.roomNotExists", { code }));
       }
     } catch (e) {
-      showErrorToast(`無法檢查房間狀態`)
+      showErrorToast(t("error.cannotCheckRoom"));
     } finally {
-      isCheckingRoom.value = false
+      isCheckingRoom.value = false;
     }
   }
-})
+});
 
 // 設定儲存回調
 function onSettingsSaved() {
@@ -359,159 +502,179 @@ function onSettingsSaved() {
 
 // 主題變更需要重新整理頁面
 function onNeedsRefresh() {
-  showInfo('💡 部分效果需要重新整理頁面才能生效，請按 F5 或重新整理')
+  showInfo("💡 " + t("common.needsRefresh"));
 }
 
 // 歷史紀錄操作
 function toggleHistoryExpand(id: string) {
-  expandedHistory.value = expandedHistory.value === id ? null : id
+  expandedHistory.value = expandedHistory.value === id ? null : id;
 }
 
 function handleClearHistory() {
-  clearHistory()
-  showClearHistoryConfirm.value = false
+  clearHistory();
+  showClearHistoryConfirm.value = false;
 }
 
 // 主持模式
 function startSoloMode() {
-  const { fixedConfig } = dynamicConfig
-  if (soloPlayerCount.value < fixedConfig.minPlayers || soloPlayerCount.value > fixedConfig.maxPlayers) {
-    alert(`人數須在 ${fixedConfig.minPlayers}-${fixedConfig.maxPlayers} 之間`)
-    return
+  const { fixedConfig } = dynamicConfig;
+  if (
+    soloPlayerCount.value < fixedConfig.minPlayers ||
+    soloPlayerCount.value > fixedConfig.maxPlayers
+  ) {
+    alert(
+      t("error.playerCountRange", {
+        min: fixedConfig.minPlayers,
+        max: fixedConfig.maxPlayers,
+      }),
+    );
+    return;
   }
-  
-  initGame(soloPlayerCount.value)
-  showSoloModal.value = false
-  router.push('/solo')
+
+  initGame(soloPlayerCount.value);
+  showSoloModal.value = false;
+  router.push("/solo");
 }
 
 // 建立房間
 function createRoom() {
-  if (isCreatingRoom.value) return // 防止重複點擊
-  
-  const { fixedConfig } = dynamicConfig
+  if (isCreatingRoom.value) return; // 防止重複點擊
+
+  const { fixedConfig } = dynamicConfig;
   if (!hostName.value.trim()) {
-    alert('請輸入你的名字')
-    return
+    alert(t("error.pleaseEnterName"));
+    return;
   }
-  if (maxPlayers.value < fixedConfig.minPlayers || maxPlayers.value > fixedConfig.onlineMaxPlayers) {
-    alert(`人數須在 ${fixedConfig.minPlayers}-${fixedConfig.onlineMaxPlayers} 之間`)
-    return
+  if (
+    maxPlayers.value < fixedConfig.minPlayers ||
+    maxPlayers.value > fixedConfig.onlineMaxPlayers
+  ) {
+    alert(
+      t("error.playerCountRange", {
+        min: fixedConfig.minPlayers,
+        max: fixedConfig.onlineMaxPlayers,
+      }),
+    );
+    return;
   }
-  
-  isCreatingRoom.value = true
-  
+
+  isCreatingRoom.value = true;
+
   // 清理舊的事件監聽器
-  off('roomUpdated')
-  off('error')
-  off('room_created')
-  
+  off("roomUpdated");
+  off("error");
+  off("room_created");
+
   // 註冊新的事件監聽器
   const handleRoomCreated = () => {
     if (roomState.value) {
-      showCreateRoomModal.value = false
-      isCreatingRoom.value = false
-      off('roomUpdated', handleRoomCreated)
-      off('error', handleError)
-      off('room_created', handleRoomCreated)
-      router.push('/online')
+      showCreateRoomModal.value = false;
+      isCreatingRoom.value = false;
+      off("roomUpdated", handleRoomCreated);
+      off("error", handleError);
+      off("room_created", handleRoomCreated);
+      router.push("/online");
     }
-  }
-  
+  };
+
   const handleError = (msg: string) => {
-    isCreatingRoom.value = false
-    showErrorToast(msg)
-    off('roomUpdated', handleRoomCreated)
-    off('error', handleError)
-    off('room_created', handleRoomCreated)
-  }
-  
-  on('roomUpdated', handleRoomCreated)
-  on('room_created', handleRoomCreated)
-  on('error', handleError)
-  
+    isCreatingRoom.value = false;
+    showErrorToast(msg);
+    off("roomUpdated", handleRoomCreated);
+    off("error", handleError);
+    off("room_created", handleRoomCreated);
+  };
+
+  on("roomUpdated", handleRoomCreated);
+  on("room_created", handleRoomCreated);
+  on("error", handleError);
+
   // 連接並建立房間
-  connect()
-  
+  connect();
+
   // 等待連接後建立房間
   setTimeout(() => {
-    wsCreateRoom(hostName.value.trim(), { maxPlayers: maxPlayers.value })
-  }, 500)
-  
+    wsCreateRoom(hostName.value.trim(), { maxPlayers: maxPlayers.value });
+  }, 500);
+
   // 超時處理
   setTimeout(() => {
     if (isCreatingRoom.value) {
-      isCreatingRoom.value = false
-      off('roomUpdated', handleRoomCreated)
-      off('error', handleError)
-      off('room_created', handleRoomCreated)
-      showErrorToast('建立房間逾時，請重試')
+      isCreatingRoom.value = false;
+      off("roomUpdated", handleRoomCreated);
+      off("error", handleError);
+      off("room_created", handleRoomCreated);
+      showErrorToast(t("error.createRoomTimeout"));
     }
-  }, 5000)
+  }, 5000);
 }
 
 // 加入房間
 function joinRoom() {
-  if (isJoiningRoom.value) return // 防止重複點擊
-  
+  if (isJoiningRoom.value) return; // 防止重複點擊
+
   if (!joinRoomId.value.trim()) {
-    alert('請輸入房間代碼')
-    return
+    alert(t("error.pleaseEnterRoomCode"));
+    return;
   }
   if (!playerName.value.trim()) {
-    alert('請輸入你的名字')
-    return
+    alert(t("error.pleaseEnterName"));
+    return;
   }
-  
-  isJoiningRoom.value = true
-  
+
+  isJoiningRoom.value = true;
+
   // 清理舊的事件監聽器
-  off('roomUpdated')
-  off('error')
-  off('room_joined')
-  
+  off("roomUpdated");
+  off("error");
+  off("room_joined");
+
   // 註冊新的事件監聽器
   const handleRoomJoined = () => {
     if (roomState.value) {
-      showJoinRoomModal.value = false
-      joinAsSpectator.value = false // 重置
-      isJoiningRoom.value = false
-      off('roomUpdated', handleRoomJoined)
-      off('error', handleError)
-      off('room_joined', handleRoomJoined)
-      router.push('/online')
+      showJoinRoomModal.value = false;
+      joinAsSpectator.value = false; // 重置
+      isJoiningRoom.value = false;
+      off("roomUpdated", handleRoomJoined);
+      off("error", handleError);
+      off("room_joined", handleRoomJoined);
+      router.push("/online");
     }
-  }
-  
+  };
+
   const handleError = (msg: string) => {
-    isJoiningRoom.value = false
-    showErrorToast(msg)
-    off('roomUpdated', handleRoomJoined)
-    off('error', handleError)
-    off('room_joined', handleRoomJoined)
-  }
-  
-  on('roomUpdated', handleRoomJoined)
-  on('room_joined', handleRoomJoined)
-  on('error', handleError)
-  
+    isJoiningRoom.value = false;
+    showErrorToast(msg);
+    off("roomUpdated", handleRoomJoined);
+    off("error", handleError);
+    off("room_joined", handleRoomJoined);
+  };
+
+  on("roomUpdated", handleRoomJoined);
+  on("room_joined", handleRoomJoined);
+  on("error", handleError);
+
   // 連接並加入房間
-  connect()
-  
+  connect();
+
   setTimeout(() => {
-    wsJoinRoom(joinRoomId.value.trim().toUpperCase(), playerName.value.trim(), joinAsSpectator.value)
-  }, 500)
-  
+    wsJoinRoom(
+      joinRoomId.value.trim().toUpperCase(),
+      playerName.value.trim(),
+      joinAsSpectator.value,
+    );
+  }, 500);
+
   // 超時處理
   setTimeout(() => {
     if (isJoiningRoom.value) {
-      isJoiningRoom.value = false
-      off('roomUpdated', handleRoomJoined)
-      off('error', handleError)
-      off('room_joined', handleRoomJoined)
-      showErrorToast('加入房間逾時，請重試')
+      isJoiningRoom.value = false;
+      off("roomUpdated", handleRoomJoined);
+      off("error", handleError);
+      off("room_joined", handleRoomJoined);
+      showErrorToast(t("error.joinRoomTimeout"));
     }
-  }, 5000)
+  }, 5000);
 }
 </script>
 
@@ -524,7 +687,7 @@ function joinRoom() {
 }
 
 .mode-card {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 30px 20px;
   text-align: center;
@@ -534,8 +697,8 @@ function joinRoom() {
 }
 
 .mode-card:hover {
-  background: rgba(255,255,255,0.2);
-  border-color: rgba(255,255,255,0.3);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-5px);
 }
 
@@ -572,7 +735,7 @@ function joinRoom() {
 .close-btn {
   background: transparent;
   border: none;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 1.5rem;
   cursor: pointer;
   padding: 5px 10px;
@@ -594,7 +757,7 @@ function joinRoom() {
   padding: 12px 24px;
   border-radius: 8px;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Toast 資訊提示樣式 */
@@ -608,7 +771,7 @@ function joinRoom() {
   padding: 12px 24px;
   border-radius: 8px;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .toast-enter-active,

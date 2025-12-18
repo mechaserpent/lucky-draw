@@ -1,113 +1,175 @@
 <template>
   <div>
     <header>
-      <h1>{{ dynamicConfig.settings.value.siteIconLeft }} {{ dynamicConfig.settings.value.siteTitle }} {{
-        dynamicConfig.settings.value.siteIconRight }}</h1>
+      <h1>
+        {{ dynamicConfig.settings.value.siteIconLeft }}
+        {{ dynamicConfig.settings.value.siteTitle }}
+        {{ dynamicConfig.settings.value.siteIconRight }}
+      </h1>
       <p>
-        <span class="mode-badge online">🌐 連線模式</span>
-        用自己的裝置參與
+        <span class="mode-badge online">🌐 {{ $t("home.onlineMode") }}</span>
+        {{ $t("online.ownDevice") }}
       </p>
     </header>
 
     <!-- 連線中 -->
-    <div v-if="!isConnected" class="card" style="text-align: center;">
-      <p>⏳ 正在連線...</p>
+    <div v-if="!isConnected" class="card" style="text-align: center">
+      <p>⏳ {{ $t("online.connecting") }}</p>
     </div>
 
     <!-- 等待階段 -->
     <template v-else-if="roomState?.gameState === 'waiting'">
       <div class="card">
-        <h2>🏠 房間資訊</h2>
+        <h2>🏠 {{ $t("online.roomInfo") }}</h2>
 
         <div class="room-info">
           <div class="room-code">
-            <span class="label">房間代碼</span>
+            <span class="label">{{ $t("modal.roomCode") }}</span>
             <span class="code">{{ roomState.id }}</span>
           </div>
 
           <div class="room-stats">
-            <span>👥 {{ roomState.players.length }} / {{ roomState.settings.maxPlayers }} 人</span>
-            <span>🎲 Seed: {{ roomState.seed }}</span>
+            <span
+              >👥 {{ roomState.players.length }} /
+              {{ roomState.settings.maxPlayers }}
+              {{ $t("common.players") }}</span
+            >
+            <span>🎲 {{ $t("common.seed") }}: {{ roomState.seed }}</span>
           </div>
         </div>
 
         <div class="share-hint">
-          <p>📱 分享房間代碼給朋友加入！</p>
+          <p>📱 {{ $t("online.shareHint") }}</p>
           <div class="share-buttons">
-            <button class="btn btn-secondary" @click="copyRoomLink">📋 複製連結</button>
-            <button v-if="roomState.settings.allowSpectators" class="btn btn-secondary" @click="copySpectatorLink">👁️
-              觀眾連結</button>
+            <button class="btn btn-secondary" @click="copyRoomLink">
+              📋 {{ $t("online.copyLink") }}
+            </button>
+            <button
+              v-if="roomState.settings.allowSpectators"
+              class="btn btn-secondary"
+              @click="copySpectatorLink"
+            >
+              👁️ {{ $t("online.spectatorLink") }}
+            </button>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <h2>👥 玩家列表</h2>
+        <h2>👥 {{ $t("online.playerList") }}</h2>
 
         <div class="players-list">
-          <div v-for="player in roomState.players" :key="player.id" class="player-item"
-            :class="{ 'is-me': player.id === playerId, 'is-host': player.isHost }">
+          <div
+            v-for="player in roomState.players"
+            :key="player.id"
+            class="player-item"
+            :class="{
+              'is-me': player.id === playerId,
+              'is-host': player.isHost,
+            }"
+          >
             <span class="player-number">{{ player.participantId }}</span>
             <span class="player-name">
               {{ player.name }}
               <span v-if="player.isHost" class="host-badge">👑</span>
-              <span v-if="player.id === playerId" class="me-badge">(你)</span>
-              <button v-if="player.id === playerId && roomState.gameState === 'waiting'" class="btn-edit-name"
-                @click="openRenameModal" title="更改名稱">✏️</button>
+              <span v-if="player.id === playerId" class="me-badge"
+                >({{ $t("online.you") }})</span
+              >
+              <button
+                v-if="
+                  player.id === playerId && roomState.gameState === 'waiting'
+                "
+                class="btn-edit-name"
+                @click="openRenameModal"
+                :title="$t('online.changeName')"
+              >
+                ✏️
+              </button>
             </span>
             <span class="ready-status" :class="{ ready: player.isReady }">
-              {{ player.isReady ? '✅ 準備' : '⏳ 等待' }}
+              {{
+                player.isReady
+                  ? "✅ " + $t("online.ready")
+                  : "⏳ " + $t("online.waiting")
+              }}
             </span>
           </div>
         </div>
       </div>
 
       <div class="card" v-if="!isHost()">
-        <h2>🎮 準備狀態</h2>
+        <h2>🎮 {{ $t("online.readyStatus") }}</h2>
         <div class="controls">
-          <button class="btn btn-lg" :class="getCurrentPlayer()?.isReady ? 'btn-danger' : 'btn-success'"
-            @click="toggleReady">
-            {{ getCurrentPlayer()?.isReady ? '❌ 取消準備' : '✅ 我準備好了' }}
+          <button
+            class="btn btn-lg"
+            :class="getCurrentPlayer()?.isReady ? 'btn-danger' : 'btn-success'"
+            @click="toggleReady"
+          >
+            {{
+              getCurrentPlayer()?.isReady
+                ? "❌ " + $t("online.cancelReady")
+                : "✅ " + $t("online.imReady")
+            }}
           </button>
         </div>
       </div>
 
       <div class="card" v-if="isHost()">
-        <h2>👑 主機控制</h2>
+        <h2>👑 {{ $t("online.hostControl") }}</h2>
 
         <!-- 人數顯示 -->
         <div class="room-player-count">
-          👥 目前人數: {{ roomState.players.length }} / {{ roomState.settings.maxPlayers }}
+          👥 {{ $t("online.currentPlayers") }}: {{ roomState.players.length }} /
+          {{ roomState.settings.maxPlayers }}
         </div>
 
         <!-- 協助加入玩家 -->
         <div class="add-player-section">
-          <h4>➕ 協助加入玩家</h4>
+          <h4>➕ {{ $t("online.addPlayer") }}</h4>
           <div class="add-player-form">
-            <input type="text" class="input" v-model="addPlayerName" placeholder="輸入玩家名字..." autocomplete="off"
-              @keypress.enter="handleAddPlayer">
-            <button class="btn btn-secondary" @click="handleAddPlayer" :disabled="!addPlayerName.trim()">
-              新增
+            <input
+              type="text"
+              class="input"
+              v-model="addPlayerName"
+              :placeholder="$t('online.enterPlayerName')"
+              autocomplete="off"
+              @keypress.enter="handleAddPlayer"
+            />
+            <button
+              class="btn btn-secondary"
+              @click="handleAddPlayer"
+              :disabled="!addPlayerName.trim()"
+            >
+              {{ $t("common.add") }}
             </button>
           </div>
         </div>
 
         <!-- 抽獎設定 -->
         <div class="draw-settings-section">
-          <h4>⚙️ 抽獎設定</h4>
+          <h4>⚙️ {{ $t("game.drawSettings") }}</h4>
           <div class="start-options">
             <label>
-              <input type="radio" v-model="firstDrawerMode" value="random">
-              隨機決定第一位抽獎者
+              <input type="radio" v-model="firstDrawerMode" value="random" />
+              {{ $t("game.randomFirst") }}
             </label>
             <div class="manual-select-row">
               <label>
-                <input type="radio" v-model="firstDrawerMode" value="manual">
-                手動指定：
+                <input type="radio" v-model="firstDrawerMode" value="manual" />
+                {{ $t("game.manualFirst") }}：
               </label>
-              <select v-model="firstDrawerId" :disabled="firstDrawerMode !== 'manual'">
-                <option :value="undefined">選擇參與者</option>
-                <option v-for="player in roomState.players" :key="player.id" :value="player.participantId">
+              <select
+                v-model="firstDrawerId"
+                :disabled="firstDrawerMode !== 'manual'"
+              >
+                <option :value="undefined">
+                  {{ $t("game.selectParticipant") }}
+                </option>
+                <option
+                  v-for="player in roomState.players"
+                  :key="player.id"
+                  :value="player.participantId"
+                >
                   {{ player.participantId }}. {{ player.name }}
                 </option>
               </select>
@@ -116,7 +178,12 @@
 
           <!-- 進階選項 -->
           <AdvancedSettings
-            :participants="roomState.players.map(p => ({ id: p.participantId, name: p.name }))"
+            :participants="
+              roomState.players.map((p) => ({
+                id: p.participantId,
+                name: p.name,
+              }))
+            "
             :fixed-pairs="fixedPairs"
             :is-open="showAdvanced"
             :show-index="true"
@@ -128,32 +195,42 @@
           <!-- 允許觀眾 -->
           <div class="spectator-toggle">
             <label>
-              <input type="checkbox" v-model="allowSpectators">
-              允許觀眾加入
+              <input type="checkbox" v-model="allowSpectators" />
+              {{ $t("online.allowSpectators") }}
             </label>
           </div>
         </div>
 
         <div class="host-buttons">
-          <button class="btn btn-primary btn-lg" @click="handleStartGame" :disabled="roomState.players.length < 2">
-            🎲 {{ allPlayersReady ? '開始遊戲' : '強制開始' }}
+          <button
+            class="btn btn-primary btn-lg"
+            @click="handleStartGame"
+            :disabled="roomState.players.length < 2"
+          >
+            🎲
+            {{
+              allPlayersReady ? $t("common.startGame") : $t("online.forceStart")
+            }}
           </button>
           <button class="btn btn-warning" @click="openSettingsModal">
-            ⚙️ 設定
+            ⚙️ {{ $t("common.settings") }}
           </button>
           <button class="btn btn-danger" @click="showLeaveConfirmModal = true">
-            🚪 離開房間
+            🚪 {{ $t("online.leaveRoom") }}
           </button>
         </div>
 
-        <p v-if="!allPlayersReady" style="opacity: 0.7; font-size: 0.85rem; margin-top: 10px;">
-          ⚠️ 有玩家尚未準備，強制開始將忽略未準備狀態
+        <p
+          v-if="!allPlayersReady"
+          style="opacity: 0.7; font-size: 0.85rem; margin-top: 10px"
+        >
+          ⚠️ {{ $t("online.notAllReady") }}
         </p>
       </div>
 
       <div class="controls" v-if="!isHost()">
         <button class="btn btn-secondary" @click="handleLeaveRoom">
-          🚪 離開房間
+          🚪 {{ $t("online.leaveRoom") }}
         </button>
       </div>
     </template>
@@ -162,26 +239,35 @@
     <template v-else-if="roomState?.gameState === 'playing'">
       <div class="card">
         <RouletteAnimation
-          :current-drawer="{ id: getCurrentDrawerId(), name: currentDrawerName }"
-          :participants="roomState.players.map(p => ({ id: p.participantId, name: p.name }))"
+          :current-drawer="{
+            id: getCurrentDrawerId(),
+            name: currentDrawerName,
+          }"
+          :participants="
+            roomState.players.map((p) => ({
+              id: p.participantId,
+              name: p.name,
+            }))
+          "
           :drawn-count="roomState.results.length"
           :total-count="roomState.players.length"
           :can-draw="(isCurrentDrawer() || isHost()) && !hasDrawnCurrent"
           :is-last-draw="roomState.currentIndex >= roomState.players.length - 1"
+          :actual-result="lastDrawResult"
           @draw="isCurrentDrawer() ? handlePerformDraw() : handleHostDraw()"
           @next="handleNextDrawer"
           @complete="() => {}"
         />
-        
+
         <!-- 提示訊息 -->
         <div v-if="isCurrentDrawer()" class="your-turn-hint">
-          <p>🎯 輪到你了！點擊開始抽獎</p>
+          <p>🎯 {{ $t("online.yourTurn") }}</p>
         </div>
         <div v-else-if="isHost() && !isCurrentDrawer()" class="host-hint">
-          <p>👑 你可以代替玩家抽獎</p>
+          <p>👑 {{ $t("online.hostCanDraw") }}</p>
         </div>
         <div v-else class="waiting-hint">
-          <p>⏳ 等待 {{ currentDrawerName }} 抽獎中...</p>
+          <p>⏳ {{ $t("online.waitingFor", { name: currentDrawerName }) }}</p>
         </div>
       </div>
 
@@ -192,10 +278,10 @@
       <!-- 遊戲進行中控制按鈕 -->
       <div class="controls" v-if="isHost()">
         <button class="btn btn-warning" @click="openSettingsModal">
-          ⚙️ 查看設定
+          ⚙️ {{ $t("game.viewSettings") }}
         </button>
         <button class="btn btn-danger" @click="handleRestartGame">
-          🔄 重新開始
+          🔄 {{ $t("game.restart") }}
         </button>
       </div>
     </template>
@@ -205,194 +291,312 @@
       <div class="loading-overlay">
         <div class="loading-content">
           <div class="loading-spinner">🎉</div>
-          <h2>正在準備結果頁面...</h2>
+          <h2>{{ $t("game.preparing") }}</h2>
         </div>
       </div>
     </template>
 
     <!-- 進度側邊面板 -->
-    <ProgressPanel 
-      v-if="roomState?.gameState === 'playing' || roomState?.gameState === 'complete'"
+    <ProgressPanel
+      v-if="
+        roomState?.gameState === 'playing' ||
+        roomState?.gameState === 'complete'
+      "
       :drawn-count="roomState?.results.length || 0"
       :total-count="roomState?.players.length || 0"
       :players="progressPlayers"
     />
 
     <!-- 離開確認彈窗 -->
-    <div class="modal-overlay" v-if="showLeaveConfirmModal" @click.self="showLeaveConfirmModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showLeaveConfirmModal"
+      @click.self="showLeaveConfirmModal = false"
+    >
       <div class="modal-content">
-        <h3>⚠️ 確認離開</h3>
-        <p style="margin: 15px 0;">
-          {{ isHost() ? '你是主機，離開後房間將解散！' : '確定要離開房間嗎？' }}
+        <h3>⚠️ {{ $t("modal.confirmLeave") }}</h3>
+        <p style="margin: 15px 0">
+          {{
+            isHost()
+              ? $t("online.hostLeaveWarning")
+              : $t("online.confirmLeaveRoom")
+          }}
         </p>
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showLeaveConfirmModal = false">取消</button>
-          <button class="btn btn-danger" @click="confirmLeaveRoom">確認離開</button>
+          <button
+            class="btn btn-secondary"
+            @click="showLeaveConfirmModal = false"
+          >
+            {{ $t("common.cancel") }}
+          </button>
+          <button class="btn btn-danger" @click="confirmLeaveRoom">
+            {{ $t("modal.confirmLeave") }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 改名彈窗 -->
-    <div class="modal-overlay" v-if="showRenameModal" @click.self="showRenameModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showRenameModal"
+      @click.self="showRenameModal = false"
+    >
       <div class="modal-content">
-        <h3>✏️ 更改名稱</h3>
-        <div style="margin: 15px 0;">
-          <input type="text" class="input" v-model="newPlayerName" placeholder="輸入新名稱..." maxlength="20"
-            @keypress.enter="handleRename" autofocus>
+        <h3>✏️ {{ $t("online.changeName") }}</h3>
+        <div style="margin: 15px 0">
+          <input
+            type="text"
+            class="input"
+            v-model="newPlayerName"
+            :placeholder="$t('online.enterNewName')"
+            maxlength="20"
+            @keypress.enter="handleRename"
+            autofocus
+          />
         </div>
         <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showRenameModal = false">取消</button>
-          <button class="btn btn-primary" @click="handleRename" :disabled="!newPlayerName.trim()">確認</button>
+          <button class="btn btn-secondary" @click="showRenameModal = false">
+            {{ $t("common.cancel") }}
+          </button>
+          <button
+            class="btn btn-primary"
+            @click="handleRename"
+            :disabled="!newPlayerName.trim()"
+          >
+            {{ $t("common.confirm") }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 設定彈窗 - 權限分級 -->
-    <div class="modal-overlay" v-if="showSettingsModal" @click.self="showSettingsModal = false">
-    <div class="modal-content settings-modal">
-      <h3>{{ isHost() && roomState?.gameState === 'waiting' ? '⚙️ 房間設定' : '📋 查看設定' }}</h3>
-      <div class="settings-content">
-
-        <!-- 基本設定區域 (所有人可見) -->
-        <div class="settings-section basic-settings">
-          <div class="section-header">
-            <h4>📋 基本資訊</h4>
-          </div>
-
-          <div class="setting-item">
-            <span class="setting-label">🏠 房間代碼:</span>
-            <span class="setting-value">{{ roomState?.id }}</span>
-          </div>
-
-          <div class="setting-item">
-            <span class="setting-label">👥 參與者人數:</span>
-            <span class="setting-value">{{ roomState?.players.length }} / {{ roomState?.settings.maxPlayers }} 人</span>
-          </div>
-
-          <div class="setting-item">
-            <span class="setting-label">🎯 起始模式:</span>
-            <span class="setting-value">{{ roomState?.settings.firstDrawerMode === 'random' ? '隨機' :
-              roomState?.settings.firstDrawerMode === 'manual' ? '手動指定' : '主機優先' }}</span>
-          </div>
-
-          <div class="setting-item">
-            <span class="setting-label">📊 目前進度:</span>
-            <span class="setting-value">{{ roomState?.results.length || 0 }} / {{ roomState?.players.length }}</span>
-          </div>
-
-          <div class="setting-item">
-            <span class="setting-label">👁️ 允許觀眾:</span>
-            <span class="setting-value">{{ roomState?.settings.allowSpectators ? '是' : '否' }}</span>
-          </div>
-
-          <!-- 參與者名單 -->
-          <div class="participants-list">
-            <p class="list-title">👥 參與者名單:</p>
-            <div class="participant-chips">
-              <span v-for="player in roomState?.players" :key="player.id" class="participant-chip">
-                {{ player.participantId }}. {{ player.name }}
-                <span v-if="player.isHost" class="host-badge">👑</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 進階設定區域 (僅主持人可見) -->
-        <template v-if="isHost()">
-          <div class="settings-divider"></div>
-
-          <div class="settings-section advanced-settings">
+    <div
+      class="modal-overlay"
+      v-if="showSettingsModal"
+      @click.self="showSettingsModal = false"
+    >
+      <div class="modal-content settings-modal">
+        <h3>
+          {{
+            isHost() && roomState?.gameState === "waiting"
+              ? "⚙️ 房間設定"
+              : "📋 查看設定"
+          }}
+        </h3>
+        <div class="settings-content">
+          <!-- 基本設定區域 (所有人可見) -->
+          <div class="settings-section basic-settings">
             <div class="section-header">
-              <h4>🔧 進階設定</h4>
-              <span class="section-badge host-only">僅主持人可見</span>
+              <h4>📋 基本資訊</h4>
             </div>
 
             <div class="setting-item">
-              <span class="setting-label">🎲 Seed:</span>
-              <span class="setting-value seed-value">{{ roomState?.seed }}</span>
+              <span class="setting-label">🏠 {{ $t("modal.roomCode") }}:</span>
+              <span class="setting-value">{{ roomState?.id }}</span>
             </div>
 
-            <!-- 觀眾連結按鈕 -->
-            <div v-if="roomState?.settings.allowSpectators" class="advanced-action">
-              <button class="btn btn-secondary btn-sm" @click="copySpectatorLink">
-                👁️ 複製觀眾連結
-              </button>
+            <div class="setting-item">
+              <span class="setting-label"
+                >👥 {{ $t("modal.playerCount") }}:</span
+              >
+              <span class="setting-value"
+                >{{ roomState?.players.length }} /
+                {{ roomState?.settings.maxPlayers }}
+                {{ $t("common.players") }}</span
+              >
             </div>
 
-            <!-- 主機在等待階段可編輯人數上限 -->
-            <template v-if="roomState?.gameState === 'waiting'">
-              <div class="setting-item editable-setting">
-                <label class="setting-label">👥 人數上限:</label>
-                <div class="max-players-control">
-                  <button class="control-btn" @click="decreaseMaxPlayers"
-                    :disabled="newMaxPlayers <= (roomState?.players.length || 2)">-</button>
-                  <span class="control-value">{{ newMaxPlayers }}</span>
-                  <button class="control-btn" @click="increaseMaxPlayers" :disabled="newMaxPlayers >= 100">+</button>
-                </div>
+            <div class="setting-item">
+              <span class="setting-label">🎯 {{ $t("game.startMode") }}:</span>
+              <span class="setting-value">{{
+                roomState?.settings.firstDrawerMode === "random"
+                  ? $t("game.random")
+                  : roomState?.settings.firstDrawerMode === "manual"
+                    ? $t("game.manual")
+                    : $t("online.hostFirst")
+              }}</span>
+            </div>
+
+            <div class="setting-item">
+              <span class="setting-label">📊 {{ $t("game.progress") }}:</span>
+              <span class="setting-value"
+                >{{ roomState?.results.length || 0 }} /
+                {{ roomState?.players.length }}</span
+              >
+            </div>
+
+            <div class="setting-item">
+              <span class="setting-label"
+                >👁️ {{ $t("online.allowSpectators") }}:</span
+              >
+              <span class="setting-value">{{
+                roomState?.settings.allowSpectators
+                  ? $t("common.yes")
+                  : $t("common.no")
+              }}</span>
+            </div>
+
+            <!-- 參與者名單 -->
+            <div class="participants-list">
+              <p class="list-title">👥 {{ $t("game.participants") }}:</p>
+              <div class="participant-chips">
+                <span
+                  v-for="player in roomState?.players"
+                  :key="player.id"
+                  class="participant-chip"
+                >
+                  {{ player.participantId }}. {{ player.name }}
+                  <span v-if="player.isHost" class="host-badge">👑</span>
+                </span>
               </div>
-              <p v-if="newMaxPlayers < (roomState?.players.length || 0)" class="warning-text">
-                ⚠️ 人數上限不能小於目前人數 ({{ roomState?.players.length }})
-              </p>
-            </template>
-          </div>
-        </template>
-
-        <!-- 非主持人提示 -->
-        <template v-else>
-          <div class="settings-divider"></div>
-          <div class="non-host-notice">
-            <div class="notice-icon">🔒</div>
-            <div class="notice-text">
-              <p class="notice-title">進階設定僅主持人可修改</p>
-              <p class="notice-desc">如需修改房間設定，請聯繫主持人</p>
             </div>
           </div>
-        </template>
 
-      </div>
+          <!-- 進階設定區域 (僅主持人可見) -->
+          <template v-if="isHost()">
+            <div class="settings-divider"></div>
 
-      <div class="modal-buttons">
-        <button class="btn btn-secondary" @click="showSettingsModal = false">
-          {{ isHost() && roomState?.gameState === 'waiting' ? '取消' : '關閉' }}
-        </button>
-        <button v-if="isHost() && roomState?.gameState === 'waiting'" class="btn btn-primary" @click="saveRoomSettings"
-          :disabled="newMaxPlayers < (roomState?.players.length || 2)">
-          儲存設定
-        </button>
+            <div class="settings-section advanced-settings">
+              <div class="section-header">
+                <h4>🔧 {{ $t("settings.advanced") }}</h4>
+                <span class="section-badge host-only">{{
+                  $t("online.hostOnly")
+                }}</span>
+              </div>
+
+              <div class="setting-item">
+                <span class="setting-label">🎲 {{ $t("common.seed") }}:</span>
+                <span class="setting-value seed-value">{{
+                  roomState?.seed
+                }}</span>
+              </div>
+
+              <!-- 觀眾連結按鈕 -->
+              <div
+                v-if="roomState?.settings.allowSpectators"
+                class="advanced-action"
+              >
+                <button
+                  class="btn btn-secondary btn-sm"
+                  @click="copySpectatorLink"
+                >
+                  👁️ {{ $t("online.copySpectatorLink") }}
+                </button>
+              </div>
+
+              <!-- 主機在等待階段可編輯人數上限 -->
+              <template v-if="roomState?.gameState === 'waiting'">
+                <div class="setting-item editable-setting">
+                  <label class="setting-label"
+                    >👥 {{ $t("modal.maxPlayers") }}:</label
+                  >
+                  <div class="max-players-control">
+                    <button
+                      class="control-btn"
+                      @click="decreaseMaxPlayers"
+                      :disabled="
+                        newMaxPlayers <= (roomState?.players.length || 2)
+                      "
+                    >
+                      -
+                    </button>
+                    <span class="control-value">{{ newMaxPlayers }}</span>
+                    <button
+                      class="control-btn"
+                      @click="increaseMaxPlayers"
+                      :disabled="newMaxPlayers >= 100"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <p
+                  v-if="newMaxPlayers < (roomState?.players.length || 0)"
+                  class="warning-text"
+                >
+                  ⚠️
+                  {{
+                    $t("online.maxPlayersWarning", {
+                      count: roomState?.players.length,
+                    })
+                  }}
+                </p>
+              </template>
+            </div>
+          </template>
+
+          <!-- 非主持人提示 -->
+          <template v-else>
+            <div class="settings-divider"></div>
+            <div class="non-host-notice">
+              <div class="notice-icon">🔒</div>
+              <div class="notice-text">
+                <p class="notice-title">{{ $t("online.advancedHostOnly") }}</p>
+                <p class="notice-desc">{{ $t("online.contactHost") }}</p>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="modal-buttons">
+          <button class="btn btn-secondary" @click="showSettingsModal = false">
+            {{
+              isHost() && roomState?.gameState === "waiting"
+                ? $t("common.cancel")
+                : $t("common.close")
+            }}
+          </button>
+          <button
+            v-if="isHost() && roomState?.gameState === 'waiting'"
+            class="btn btn-primary"
+            @click="saveRoomSettings"
+            :disabled="newMaxPlayers < (roomState?.players.length || 2)"
+          >
+            {{ $t("common.save") }}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- 房間解散提示 -->
-  <div class="modal-overlay" v-if="showRoomDisbandModal">
-    <div class="modal-content">
-      <h3>❌ 房間已解散</h3>
-      <p style="margin: 15px 0;">主機已離開，房間已解散。</p>
-      <div class="modal-buttons">
-        <button class="btn btn-primary" @click="goHome">返回首頁</button>
+    <!-- 房間解散提示 -->
+    <div class="modal-overlay" v-if="showRoomDisbandModal">
+      <div class="modal-content">
+        <h3>❌ {{ $t("modal.roomDisbanded") }}</h3>
+        <p style="margin: 15px 0">{{ $t("modal.hostLeft") }}</p>
+        <div class="modal-buttons">
+          <button class="btn btn-primary" @click="goHome">
+            {{ $t("common.home") }}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- 進階選項密碼驗證 -->
-  <PasswordModal
-    v-model="showAdvancedModal"
-    title="進階選項驗證"
-    confirm-text="確認"
-    confirm-button-class="btn-primary"
-    @confirm="confirmAdvanced"
-  />
+    <!-- 進階選項密碼驗證 -->
+    <PasswordModal
+      v-model="showAdvancedModal"
+      :title="$t('modal.advancedVerify')"
+      :confirm-text="$t('common.confirm')"
+      confirm-button-class="btn-primary"
+      @confirm="confirmAdvanced"
+    />
 
     <!-- QR Code 彈窗 -->
-    <div class="modal-overlay" v-if="showQRModal" @click.self="showQRModal = false">
+    <div
+      class="modal-overlay"
+      v-if="showQRModal"
+      @click.self="showQRModal = false"
+    >
       <div class="modal-content qr-modal">
-        <h3>📱 掃描 QR Code 加入</h3>
+        <h3>📱 {{ $t("online.scanQR") }}</h3>
         <div class="qr-container">
           <canvas ref="qrCanvas" class="qr-code"></canvas>
         </div>
         <div class="qr-url">{{ qrCodeUrl }}</div>
         <div class="modal-buttons">
-          <button class="btn btn-primary" @click="showQRModal = false">關閉</button>
+          <button class="btn btn-primary" @click="showQRModal = false">
+            {{ $t("common.close") }}
+          </button>
         </div>
       </div>
     </div>
@@ -409,19 +613,18 @@
 
     <!-- 錯誤提示 -->
     <Transition name="toast">
-      <div v-if="showErrorToast" class="toast-error">
-        ❌ {{ errorMessage }}
-      </div>
+      <div v-if="showErrorToast" class="toast-error">❌ {{ errorMessage }}</div>
     </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 
-const router = useRouter()
-const dynamicConfig = useDynamicConfig()
-const { addRecord: addHistoryRecord } = useHistory()
+const { t } = useI18n();
+const router = useRouter();
+const dynamicConfig = useDynamicConfig();
+const { addRecord: addHistoryRecord } = useHistory();
 const {
   isConnected,
   playerId,
@@ -441,544 +644,604 @@ const {
   nextDrawer,
   getCurrentPlayer,
   isCurrentDrawer,
-  isHost
-} = useWebSocket()
+  isHost,
+} = useWebSocket();
 
-const { generateResultImage, downloadImage, shareImage, getSocialShareLinks, copyImageToClipboard } = useShareImage()
+const {
+  generateResultImage,
+  downloadImage,
+  shareImage,
+  getSocialShareLinks,
+  copyImageToClipboard,
+} = useShareImage();
 
 // 彈窗控制
-const showLeaveConfirmModal = ref(false)
-const showRenameModal = ref(false)
-const newPlayerName = ref('')
-const showSettingsModal = ref(false)
-const showRoomDisbandModal = ref(false)
-const showAdvancedSettings = ref(false)
-const showShareModal = ref(false)
-const showQRModal = ref(false)
-const qrCodeUrl = ref('')
-const qrCanvas = ref<HTMLCanvasElement | null>(null)
+const showLeaveConfirmModal = ref(false);
+const showRenameModal = ref(false);
+const newPlayerName = ref("");
+const showSettingsModal = ref(false);
+const showRoomDisbandModal = ref(false);
+const showAdvancedSettings = ref(false);
+const showShareModal = ref(false);
+const showQRModal = ref(false);
+const qrCodeUrl = ref("");
+const qrCanvas = ref<HTMLCanvasElement | null>(null);
 
 // 表單數據
-const addPlayerName = ref('')
-const newMaxPlayers = ref(20)
+const addPlayerName = ref("");
+const newMaxPlayers = ref(20);
 
 // 抽獎設定
-const firstDrawerMode = ref<'random' | 'manual'>('random')
-const firstDrawerId = ref<number | undefined>(undefined)
-const allowSpectators = ref(true)
+const firstDrawerMode = ref<"random" | "manual">("random");
+const firstDrawerId = ref<number | undefined>(undefined);
+const allowSpectators = ref(true);
 
 // 進階設定
-const fixedDrawerId = ref<number | undefined>(undefined)
-const fixedGiftId = ref<number | undefined>(undefined)
-const fixedPairs = ref<{ drawerId: number, giftOwnerId: number }[]>([])
-const showAdvanced = ref(false)
-const showAdvancedModal = ref(false)
+const fixedDrawerId = ref<number | undefined>(undefined);
+const fixedGiftId = ref<number | undefined>(undefined);
+const fixedPairs = ref<{ drawerId: number; giftOwnerId: number }[]>([]);
+const showAdvanced = ref(false);
+const showAdvancedModal = ref(false);
 
 // 錯誤提示
-const showErrorToast = ref(false)
-const errorMessage = ref('')
+const showErrorToast = ref(false);
+const errorMessage = ref("");
 
 // 抽獎動畫狀態
-const isDrawing = ref(false)
-const autoProgressTimeout = ref<number | null>(null)
-const showResult = ref(false)
-const drawBoxContent = ref('🎁')
-const resultGiftOwner = ref('')
-const hasDrawnCurrent = ref(false)
+const isDrawing = ref(false);
+const autoProgressTimeout = ref<number | null>(null);
+const showResult = ref(false);
+const drawBoxContent = ref("🎁");
+const resultGiftOwner = ref("");
+const hasDrawnCurrent = ref(false);
+const hasAddedHistory = ref(false);
+const lastDrawResult = ref<{
+  drawerName: string;
+  giftOwnerName: string;
+} | null>(null);
 
 // 計算屬性
 const allPlayersReady = computed(() => {
-  if (!roomState.value) return false
-  return roomState.value.players.every(p => p.isReady || p.isHost)
-})
+  if (!roomState.value) return false;
+  return roomState.value.players.every((p) => p.isReady || p.isHost);
+});
 const canStartGame = computed(() => {
-  if (!roomState.value) return false
-  return roomState.value.players.length >= 2 &&
-    roomState.value.players.every(p => p.isReady || p.isHost)
-})
+  if (!roomState.value) return false;
+  return (
+    roomState.value.players.length >= 2 &&
+    roomState.value.players.every((p) => p.isReady || p.isHost)
+  );
+});
 
 const currentDrawerName = computed(() => {
-  if (!roomState.value) return '-'
-  const currentId = roomState.value.drawOrder[roomState.value.currentIndex]
-  const player = roomState.value.players.find(p => p.participantId === currentId)
-  return player?.name || '-'
-})
+  if (!roomState.value) return "-";
+  const currentId = roomState.value.drawOrder[roomState.value.currentIndex];
+  const player = roomState.value.players.find(
+    (p) => p.participantId === currentId,
+  );
+  return player?.name || "-";
+});
 
 function getCurrentDrawerId() {
-  if (!roomState.value) return 0
-  return roomState.value.drawOrder[roomState.value.currentIndex] || 0
+  if (!roomState.value) return 0;
+  return roomState.value.drawOrder[roomState.value.currentIndex] || 0;
 }
 
 // Computed properties for components
 const formattedResults = computed(() => {
-  if (!roomState.value) return []
+  if (!roomState.value) return [];
   return roomState.value.results.map((r: any) => ({
     order: r.order,
     drawerName: getPlayerName(r.drawerId),
-    giftOwnerName: getPlayerName(r.giftOwnerId)
-  }))
-})
+    giftOwnerName: getPlayerName(r.giftOwnerId),
+  }));
+});
 
 const progressPlayers = computed(() => {
-  if (!roomState.value) return []
+  if (!roomState.value) return [];
   return roomState.value.players.map((p: any) => ({
     id: p.participantId,
     name: p.name,
-    isCurrent: roomState.value!.drawOrder[roomState.value!.currentIndex] === p.participantId,
-    hasDrawn: roomState.value!.results.some((r: any) => r.drawerId === p.participantId)
-  }))
-})
+    isCurrent:
+      roomState.value!.drawOrder[roomState.value!.currentIndex] ===
+      p.participantId,
+    hasDrawn: roomState.value!.results.some(
+      (r: any) => r.drawerId === p.participantId,
+    ),
+  }));
+});
 
 // WebSocket 事件處理函數（定義在外部以便清理）
 function onWsDrawPerformed(result: any) {
-  playDrawAnimation(result)
+  playDrawAnimation(result);
 }
 
 function onWsNextDrawer() {
-  hasDrawnCurrent.value = false
-  showResult.value = false
-  drawBoxContent.value = '🎁'
+  hasDrawnCurrent.value = false;
+  showResult.value = false;
+  drawBoxContent.value = "🎁";
+  lastDrawResult.value = null;
 }
 
 function onWsGameComplete() {
-  celebrate()
+  celebrate();
 }
 
 function onWsRoomDisbanded() {
-  showRoomDisbandModal.value = true
+  showRoomDisbandModal.value = true;
 }
 
 function onWsGameRestarted() {
-  hasDrawnCurrent.value = false
-  showResult.value = false
-  drawBoxContent.value = '🎁'
-  displayError('✅ 遊戲已重新開始！')
+  hasDrawnCurrent.value = false;
+  showResult.value = false;
+  drawBoxContent.value = "🎁";
+  lastDrawResult.value = null;
+  hasAddedHistory.value = false;
+  displayError("✅ 遊戲已重新開始！");
 }
 
 function onWsError(msg: string) {
-  displayError(msg)
+  displayError(msg);
 }
 
 onMounted(() => {
   // 確保連線
   if (!isConnected.value) {
-    connect()
+    connect();
   }
 
   // 如果沒有房間狀態，回到首頁
   setTimeout(() => {
     if (!roomState.value) {
-      router.push('/')
+      router.push("/");
     }
-  }, 2000)
+  }, 2000);
 
   // 先清除舊的事件監聽器，再註冊新的
-  off('drawPerformed')
-  off('nextDrawer')
-  off('gameComplete')
-  off('roomDisbanded')
-  off('gameRestarted')
-  off('playerDisconnected')
-  off('error')
+  off("drawPerformed");
+  off("nextDrawer");
+  off("gameComplete");
+  off("roomDisbanded");
+  off("gameRestarted");
+  off("playerDisconnected");
+  off("error");
 
   // 監聽事件
-  on('drawPerformed', onWsDrawPerformed)
-  on('nextDrawer', onWsNextDrawer)
-  on('gameComplete', onWsGameComplete)
-  on('roomDisbanded', onWsRoomDisbanded)
-  on('gameRestarted', onWsGameRestarted)
-  on('playerDisconnected', (payload: any) => {
+  on("drawPerformed", onWsDrawPerformed);
+  on("nextDrawer", onWsNextDrawer);
+  on("gameComplete", onWsGameComplete);
+  on("roomDisbanded", onWsRoomDisbanded);
+  on("gameRestarted", onWsGameRestarted);
+  on("playerDisconnected", (payload: any) => {
     if (payload.hostTransferred) {
-      const newHost = roomState.value?.players.find(p => p.id === payload.newHostId)
+      const newHost = roomState.value?.players.find(
+        (p) => p.id === payload.newHostId,
+      );
       if (newHost) {
-        displayError(`⚠️ 原主機已斷線，主機權限已移交給 ${newHost.name}`)
+        displayError(`⚠️ 原主機已斷線，主機權限已移交給 ${newHost.name}`);
       }
     } else if (payload.isHost) {
-      displayError('⚠️ 主機已斷線，但房間保留，您可以繼續遊戲')
+      displayError("⚠️ 主機已斷線，但房間保留，您可以繼續遊戲");
     }
-  })
-  on('error', onWsError)
-})
+  });
+  on("error", onWsError);
+});
 
 onUnmounted(() => {
   // 清除自動進入下一位的計時器
   if (autoProgressTimeout.value) {
-    clearTimeout(autoProgressTimeout.value)
-    autoProgressTimeout.value = null
+    clearTimeout(autoProgressTimeout.value);
+    autoProgressTimeout.value = null;
   }
 
   // 清除事件監聯器
-  off('drawPerformed')
-  off('nextDrawer')
-  off('gameComplete')
-  off('roomDisbanded')
-  off('gameRestarted')
-  off('error')
-})
+  off("drawPerformed");
+  off("nextDrawer");
+  off("gameComplete");
+  off("roomDisbanded");
+  off("gameRestarted");
+  off("error");
+});
 
 // 顯示錯誤提示
 function displayError(msg: string) {
-  errorMessage.value = msg
-  showErrorToast.value = true
+  errorMessage.value = msg;
+  showErrorToast.value = true;
   setTimeout(() => {
-    showErrorToast.value = false
-  }, 3000)
+    showErrorToast.value = false;
+  }, 3000);
 }
 
 // 返回首頁
 function goHome() {
-  showRoomDisbandModal.value = false
-  router.push('/')
+  showRoomDisbandModal.value = false;
+  router.push("/");
 }
 
 // 獲取玩家名稱
 function getPlayerName(participantId: number): string {
-  const player = roomState.value?.players.find(p => p.participantId === participantId)
-  return player?.name || '?'
+  const player = roomState.value?.players.find(
+    (p) => p.participantId === participantId,
+  );
+  return player?.name || "?";
 }
 
 // 複製房間連結
 function copyRoomLink() {
-  const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}`
-  navigator.clipboard.writeText(url)
-  showQRCode(url)
-  displayError('✅ 已複製連結！')
+  const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}`;
+  navigator.clipboard.writeText(url);
+  showQRCode(url);
+  displayError("✅ 已複製連結！");
 }
 
 // 複製觀眾連結
 function copySpectatorLink() {
-  const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}&spectator=true`
-  navigator.clipboard.writeText(url)
-  showQRCode(url)
-  displayError('✅ 已複製觀眾連結！')
+  const url = `${window.location.origin}${window.location.pathname}?room=${roomState.value?.id}&spectator=true`;
+  navigator.clipboard.writeText(url);
+  showQRCode(url);
+  displayError("✅ 已複製觀眾連結！");
 }
 
 // 顯示 QR Code
 function showQRCode(url: string) {
-  qrCodeUrl.value = url
-  showQRModal.value = true
-  
+  qrCodeUrl.value = url;
+  showQRModal.value = true;
+
   // 等待 DOM 更新後生成 QR Code
   nextTick(() => {
     if (qrCanvas.value) {
-      generateQRCode(url, qrCanvas.value)
+      generateQRCode(url, qrCanvas.value);
     }
-  })
+  });
 }
 
 // 生成 QR Code
 function generateQRCode(text: string, canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
   // 簡易 QR Code 生成（使用第三方 API）
-  const size = 300
-  canvas.width = size
-  canvas.height = size
-  
+  const size = 300;
+  canvas.width = size;
+  canvas.height = size;
+
   // 使用 Google Charts API 生成 QR Code
-  const img = new Image()
-  img.crossOrigin = 'anonymous'
+  const img = new Image();
+  img.crossOrigin = "anonymous";
   img.onload = () => {
-    ctx.drawImage(img, 0, 0, size, size)
-  }
-  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`
+    ctx.drawImage(img, 0, 0, size, size);
+  };
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
 }
 
 // 切換準備狀態
 function toggleReady() {
-  const current = getCurrentPlayer()
+  const current = getCurrentPlayer();
   if (current) {
-    setReady(!current.isReady)
+    setReady(!current.isReady);
   }
 }
 
 // 協助加入玩家
 function handleAddPlayer() {
-  if (!addPlayerName.value.trim()) return
+  if (!addPlayerName.value.trim()) return;
 
   send({
-    type: 'host_add_player',
-    payload: { playerName: addPlayerName.value.trim() }
-  })
-  addPlayerName.value = ''
+    type: "host_add_player",
+    payload: { playerName: addPlayerName.value.trim() },
+  });
+  addPlayerName.value = "";
 }
 
 // 進階設定相關函數
 function handleToggleAdvanced() {
-  const config = useDynamicConfig()
+  const config = useDynamicConfig();
   if (config.settings.value.passwordProtection) {
-    showAdvancedModal.value = true
+    showAdvancedModal.value = true;
   } else {
-    showAdvanced.value = !showAdvanced.value
+    showAdvanced.value = !showAdvanced.value;
   }
 }
 
 function confirmAdvanced(password: string) {
   // 驗證密碼
-  const storedPassword = localStorage.getItem('christmas_draw_admin_pwd')
+  const storedPassword = localStorage.getItem("christmas_draw_admin_pwd");
   if (!storedPassword) {
-    alert('尚未設定管理員密碼，請先在設定中設定密碼')
-    return
+    alert(t("error.noPasswordSet"));
+    return;
   }
   if (password !== storedPassword) {
-    alert('密碼錯誤！')
-    return
+    alert(t("error.wrongPassword"));
+    return;
   }
 
-  showAdvancedModal.value = false
-  showAdvanced.value = true
+  showAdvancedModal.value = false;
+  showAdvanced.value = true;
 }
 
 function handleAddFixedPair(drawerId: number, giftId: number) {
   if (drawerId === giftId) {
-    alert('A 和 B 不能相同！')
-    return
+    alert(t("errors.sameAB"));
+    return;
   }
 
   // 檢查是否已存在
-  const exists = fixedPairs.value.some(fp => fp.drawerId === drawerId)
+  const exists = fixedPairs.value.some((fp) => fp.drawerId === drawerId);
   if (exists) {
-    alert('此項目已存在設定')
-    return
+    alert(t("errors.alreadyExists"));
+    return;
   }
 
-  fixedPairs.value.push({ drawerId, giftOwnerId: giftId })
+  fixedPairs.value.push({ drawerId, giftOwnerId: giftId });
 }
 
 function removeFixedPair(drawerId: number) {
-  fixedPairs.value = fixedPairs.value.filter(fp => fp.drawerId !== drawerId)
+  fixedPairs.value = fixedPairs.value.filter((fp) => fp.drawerId !== drawerId);
 }
 
 // 開始遊戲（強制或正常）
 function handleStartGame() {
-  startGame()
+  hasAddedHistory.value = false;
+  lastDrawResult.value = null;
+  startGame();
 }
 
 // 執行抽獎
 function handlePerformDraw() {
-  performDraw()
+  performDraw();
 }
 
 // 主機代替抽獎
 function handleHostDraw() {
-  if (!roomState.value) return
-  const currentId = roomState.value.drawOrder[roomState.value.currentIndex]
-  hostPerformDraw(currentId)
+  if (!roomState.value) return;
+  const currentId = roomState.value.drawOrder[roomState.value.currentIndex];
+  hostPerformDraw(currentId);
 }
 
 // 下一位
 function handleNextDrawer() {
   // 清除自動進入下一位的計時器，避免重複觸發
   if (autoProgressTimeout.value) {
-    clearTimeout(autoProgressTimeout.value)
-    autoProgressTimeout.value = null
+    clearTimeout(autoProgressTimeout.value);
+    autoProgressTimeout.value = null;
   }
-  nextDrawer()
+  nextDrawer();
 }
 
 // 打開設定彈窗
 function openSettingsModal() {
   if (roomState.value) {
-    newMaxPlayers.value = roomState.value.settings.maxPlayers
-    firstDrawerMode.value = roomState.value.settings.firstDrawerMode === 'host' ? 'random' : roomState.value.settings.firstDrawerMode
-    firstDrawerId.value = roomState.value.settings.firstDrawerId
-    allowSpectators.value = roomState.value.settings.allowSpectators
+    newMaxPlayers.value = roomState.value.settings.maxPlayers;
+    firstDrawerMode.value =
+      roomState.value.settings.firstDrawerMode === "host"
+        ? "random"
+        : roomState.value.settings.firstDrawerMode;
+    firstDrawerId.value = roomState.value.settings.firstDrawerId;
+    allowSpectators.value = roomState.value.settings.allowSpectators;
   }
-  showSettingsModal.value = true
+  showSettingsModal.value = true;
 }
 
 // 離開房間（主機需確認）
 function handleLeaveRoom() {
   if (isHost()) {
-    showLeaveConfirmModal.value = true
+    showLeaveConfirmModal.value = true;
   } else {
-    leaveRoom()
-    router.push('/')
+    leaveRoom();
+    router.push("/");
   }
 }
 
 // 確認離開房間
 function confirmLeaveRoom() {
-  showLeaveConfirmModal.value = false
-  leaveRoom()
-  router.push('/')
+  showLeaveConfirmModal.value = false;
+  leaveRoom();
+  router.push("/");
 }
 
 // 打開改名彈窗
 function openRenameModal() {
-  const currentPlayer = getCurrentPlayer()
-  newPlayerName.value = currentPlayer?.name || ''
-  showRenameModal.value = true
+  const currentPlayer = getCurrentPlayer();
+  newPlayerName.value = currentPlayer?.name || "";
+  showRenameModal.value = true;
 }
 
 // 確認改名
 function handleRename() {
   if (newPlayerName.value.trim()) {
-    renamePlayer(newPlayerName.value.trim())
-    showRenameModal.value = false
+    renamePlayer(newPlayerName.value.trim());
+    showRenameModal.value = false;
   }
 }
 
 // 增加人數上限
 function increaseMaxPlayers() {
   if (newMaxPlayers.value < 100) {
-    newMaxPlayers.value++
+    newMaxPlayers.value++;
   }
 }
 
 // 減少人數上限
 function decreaseMaxPlayers() {
-  const minPlayers = roomState.value?.players.length || 2
+  const minPlayers = roomState.value?.players.length || 2;
   if (newMaxPlayers.value > minPlayers) {
-    newMaxPlayers.value--
+    newMaxPlayers.value--;
   }
 }
 
 // 儲存房間設定
 function saveRoomSettings() {
-  if (!roomState.value) return
+  if (!roomState.value) return;
 
   // 遊戲開始後不可修改設定
-  if (roomState.value.gameState !== 'waiting') {
-    displayError('遊戲進行中無法修改設定')
-    return
+  if (roomState.value.gameState !== "waiting") {
+    displayError("遊戲進行中無法修改設定");
+    return;
   }
 
-  const minPlayers = roomState.value.players.length
+  const minPlayers = roomState.value.players.length;
   if (newMaxPlayers.value < minPlayers) {
-    displayError('人數上限不能小於目前人數')
-    return
+    displayError("人數上限不能小於目前人數");
+    return;
   }
 
   send({
-    type: 'update_settings',
+    type: "update_settings",
     payload: {
       maxPlayers: newMaxPlayers.value,
       firstDrawerMode: firstDrawerMode.value,
-      firstDrawerId: firstDrawerMode.value === 'manual' ? firstDrawerId.value : undefined,
-      allowSpectators: allowSpectators.value
-    }
-  })
+      firstDrawerId:
+        firstDrawerMode.value === "manual" ? firstDrawerId.value : undefined,
+      allowSpectators: allowSpectators.value,
+    },
+  });
 
-  showSettingsModal.value = false
+  showSettingsModal.value = false;
 }
 
 // 防止重複觸發抽獎動畫
-let animationInProgress = false
+let animationInProgress = false;
 
 // 播放抽獎動畫
 function playDrawAnimation(result: any) {
   // 防止重複觸發
   if (animationInProgress) {
-    console.log('Animation already in progress, ignoring duplicate trigger')
-    return
+    console.log("Animation already in progress, ignoring duplicate trigger");
+    return;
   }
 
-  animationInProgress = true
-  isDrawing.value = true
-  showResult.value = false
+  animationInProgress = true;
+  isDrawing.value = true;
+  showResult.value = false;
 
-  let shuffleCount = 0
-  const maxShuffles = 20
+  let shuffleCount = 0;
+  const maxShuffles = 20;
 
   const shuffleInterval = setInterval(() => {
     if (!roomState.value) {
-      clearInterval(shuffleInterval)
-      animationInProgress = false
-      return
+      clearInterval(shuffleInterval);
+      animationInProgress = false;
+      return;
     }
-    const randomP = roomState.value.players[Math.floor(Math.random() * roomState.value.players.length)]
-    drawBoxContent.value = randomP.name.charAt(0)
-    shuffleCount++
+    const randomP =
+      roomState.value.players[
+        Math.floor(Math.random() * roomState.value.players.length)
+      ];
+    drawBoxContent.value = randomP.name.charAt(0);
+    shuffleCount++;
 
     if (shuffleCount >= maxShuffles) {
-      clearInterval(shuffleInterval)
+      clearInterval(shuffleInterval);
 
-      const giftOwner = getPlayerName(result.giftOwnerId)
-      drawBoxContent.value = giftOwner.charAt(0)
-      resultGiftOwner.value = giftOwner
+      const drawerName = getPlayerName(result.drawerId);
+      const giftOwner = getPlayerName(result.giftOwnerId);
+      drawBoxContent.value = giftOwner.charAt(0);
+      resultGiftOwner.value = giftOwner;
 
-      isDrawing.value = false
-      showResult.value = true
-      hasDrawnCurrent.value = true
-      animationInProgress = false
+      // 儲存實際抽獎結果供動畫組件使用
+      lastDrawResult.value = {
+        drawerName,
+        giftOwnerName: giftOwner,
+      };
+
+      isDrawing.value = false;
+      showResult.value = true;
+      hasDrawnCurrent.value = true;
+      animationInProgress = false;
 
       // Auto-progress to next drawer after a delay (only if host and game not complete)
-      if (isHost() && roomState.value &&
-        roomState.value.gameState === 'playing' &&
-        roomState.value.results.length < roomState.value.players.length) {
+      if (
+        isHost() &&
+        roomState.value &&
+        roomState.value.gameState === "playing" &&
+        roomState.value.results.length < roomState.value.players.length
+      ) {
         autoProgressTimeout.value = window.setTimeout(() => {
-          autoProgressTimeout.value = null
-          handleNextDrawer()
-        }, 2000) // 2 second delay to show the result
-      } else if (roomState.value && roomState.value.results.length >= roomState.value.players.length) {
+          autoProgressTimeout.value = null;
+          handleNextDrawer();
+        }, 2000); // 2 second delay to show the result
+      } else if (
+        roomState.value &&
+        roomState.value.results.length >= roomState.value.players.length
+      ) {
         // 遊戲完成，觸發慶祝動畫
         setTimeout(() => {
-          celebrate()
-        }, 500)
+          celebrate();
+        }, 500);
       }
     }
-  }, 80)
+  }, 80);
 }
 
 // 重新開始遊戲（保持設定，更新 seed）
 function handleRestartGame() {
-  if (confirm('確定要重新開始遊戲嗎？所有抽獎記錄將會清空。')) {
+  if (confirm("確定要重新開始遊戲嗎？所有抽獎記錄將會清空。")) {
     send({
-      type: 'restart_game',
-      payload: {}
-    })
+      type: "restart_game",
+      payload: {},
+    });
   }
 }
 
 // 分享結果 - 打開分享選單
 function shareResults() {
-  showShareModal.value = true
+  showShareModal.value = true;
 }
 
 // 慶祝動畫
 function celebrate() {
+  // 防止重複添加歷史紀錄
+  if (hasAddedHistory.value) return;
+  hasAddedHistory.value = true;
+
   // 保存歷史紀錄和結果
   if (roomState.value && roomState.value.results.length > 0) {
-    const resultsData = roomState.value.results.map(r => ({
+    const resultsData = roomState.value.results.map((r) => ({
       order: r.order,
       drawerName: getPlayerName(r.drawerId),
-      giftOwnerName: getPlayerName(r.giftOwnerId)
-    }))
+      giftOwnerName: getPlayerName(r.giftOwnerId),
+    }));
 
     addHistoryRecord({
-      mode: 'online',
+      mode: "online",
       seed: roomState.value.seed,
       participantCount: roomState.value.players.length,
-      results: resultsData
-    })
+      results: resultsData,
+    });
 
     // 保存結果到 localStorage 供 result 頁面使用
-    const resultId = `online_${roomState.value.id}_${roomState.value.seed}_${Date.now()}`
+    const resultId = `online_${roomState.value.id}_${roomState.value.seed}_${Date.now()}`;
     const resultData = {
       id: resultId,
-      mode: 'online',
+      mode: "online",
       roomId: roomState.value.id,
       seed: roomState.value.seed,
       participantCount: roomState.value.players.length,
-      results: resultsData
-    }
-    localStorage.setItem(`result_${resultId}`, JSON.stringify(resultData))
+      results: resultsData,
+    };
+    localStorage.setItem(`result_${resultId}`, JSON.stringify(resultData));
 
     // 跳轉到結果頁面
     setTimeout(() => {
-      router.push({ path: '/result', query: { id: resultId } })
-    }, 2000) // 延遲 2 秒讓動畫播放
+      router.push({ path: "/result", query: { id: resultId } });
+    }, 2000); // 延遲 2 秒讓動畫播放
   }
 
-  const colors = ['#ffd700', '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7']
-  const container = document.createElement('div')
-  container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;'
-  document.body.appendChild(container)
+  const colors = [
+    "#ffd700",
+    "#ff6b6b",
+    "#4ecdc4",
+    "#45b7d1",
+    "#96ceb4",
+    "#ffeaa7",
+  ];
+  const container = document.createElement("div");
+  container.style.cssText =
+    "position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;";
+  document.body.appendChild(container);
 
   for (let i = 0; i < 100; i++) {
-    const confetti = document.createElement('div')
+    const confetti = document.createElement("div");
     confetti.style.cssText = `
       position:absolute;
       width:${Math.random() * 10 + 5}px;
@@ -988,23 +1251,23 @@ function celebrate() {
       top:-20px;
       animation:confetti-fall 3s ease-out forwards;
       animation-delay:${Math.random() * 2}s;
-    `
-    container.appendChild(confetti)
+    `;
+    container.appendChild(confetti);
   }
 
-  if (!document.getElementById('confetti-style')) {
-    const style = document.createElement('style')
-    style.id = 'confetti-style'
+  if (!document.getElementById("confetti-style")) {
+    const style = document.createElement("style");
+    style.id = "confetti-style";
     style.textContent = `
       @keyframes confetti-fall {
         0% { opacity: 1; transform: translateY(0) rotate(0deg); }
         100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
       }
-    `
-    document.head.appendChild(style)
+    `;
+    document.head.appendChild(style);
   }
 
-  setTimeout(() => container.remove(), 5000)
+  setTimeout(() => container.remove(), 5000);
 }
 </script>
 
@@ -1149,7 +1412,6 @@ function celebrate() {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     opacity: 1;
@@ -1186,13 +1448,18 @@ function celebrate() {
 }
 
 .draw-box::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(
+    45deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
   transform: rotate(45deg);
   animation: shine 3s infinite;
 }
@@ -1217,7 +1484,6 @@ function celebrate() {
 }
 
 @keyframes shuffle {
-
   0%,
   100% {
     transform: translateY(0) scale(1);
@@ -1229,13 +1495,21 @@ function celebrate() {
 }
 
 @keyframes shake {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateX(0) rotate(0deg);
   }
-  10%, 30%, 50%, 70%, 90% {
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
     transform: translateX(-5px) rotate(-2deg);
   }
-  20%, 40%, 60%, 80% {
+  20%,
+  40%,
+  60%,
+  80% {
     transform: translateX(5px) rotate(2deg);
   }
 }
@@ -1702,7 +1976,7 @@ function celebrate() {
 }
 
 .seed-value {
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   background: rgba(0, 0, 0, 0.2);
   padding: 4px 8px;
   border-radius: 4px;
@@ -1743,7 +2017,12 @@ function celebrate() {
 
 .settings-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
   margin: 20px 0;
 }
 
@@ -2055,7 +2334,6 @@ function celebrate() {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     transform: scale(1);
@@ -2195,9 +2473,16 @@ function celebrate() {
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-20px) rotate(-10deg); }
-  75% { transform: translateY(-15px) rotate(10deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-20px) rotate(-10deg);
+  }
+  75% {
+    transform: translateY(-15px) rotate(10deg);
+  }
 }
 
 /* 提示訊息樣式 */
@@ -2213,12 +2498,20 @@ function celebrate() {
 }
 
 .your-turn-hint {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.2));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.2),
+    rgba(255, 140, 0, 0.2)
+  );
   border: 2px solid rgba(255, 215, 0, 0.5);
 }
 
 .host-hint {
-  background: linear-gradient(135deg, rgba(100, 200, 255, 0.2), rgba(70, 130, 255, 0.2));
+  background: linear-gradient(
+    135deg,
+    rgba(100, 200, 255, 0.2),
+    rgba(70, 130, 255, 0.2)
+  );
   border: 2px solid rgba(100, 200, 255, 0.5);
 }
 
@@ -2236,7 +2529,14 @@ function celebrate() {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.02); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
 }
 </style>

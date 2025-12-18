@@ -1,34 +1,36 @@
 <template>
   <div class="roulette-container">
     <!-- 三段式狀態 UI -->
-    
+
     <!-- 階段 1: 抽獎前 -->
     <div v-if="state === 'before'" class="before-draw">
       <div class="next-drawer-info">
         <div class="drawer-avatar">👤</div>
         <div class="drawer-details">
-          <p class="label">下一位抽獎者</p>
-          <h2 class="drawer-name">{{ currentDrawer?.name || '準備中...' }}</h2>
+          <p class="label">{{ $t("game.nextDrawerLabel") }}</p>
+          <h2 class="drawer-name">
+            {{ currentDrawer?.name || $t("game.preparingDraw") }}
+          </h2>
         </div>
       </div>
-      
+
       <div class="progress-info">
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: `${progress}%` }"></div>
         </div>
         <p class="progress-text">{{ drawnCount }} / {{ totalCount }}</p>
       </div>
-      
-      <button 
+
+      <button
         class="btn btn-primary btn-lg draw-button"
         @click="startDraw"
         :disabled="!canDraw"
       >
         <span class="btn-icon">🎲</span>
-        <span class="btn-text">開始抽獎</span>
+        <span class="btn-text">{{ $t("game.startDraw") }}</span>
       </button>
     </div>
-    
+
     <!-- 階段 2: 抽獎中 - 橫向滾動 -->
     <div v-if="state === 'drawing'" class="roulette-draw">
       <div class="roulette-wrapper">
@@ -36,21 +38,17 @@
         <div class="roulette-pointer">
           <div class="pointer-arrow">▼</div>
         </div>
-        
+
         <!-- 橫向滾動軌道 -->
         <div class="roulette-track-container">
-          <div 
-            class="roulette-track" 
-            ref="trackRef"
-            :style="trackStyle"
-          >
-            <div 
-              v-for="(item, idx) in extendedItems" 
+          <div class="roulette-track" ref="trackRef" :style="trackStyle">
+            <div
+              v-for="(item, idx) in extendedItems"
               :key="`item-${idx}`"
               class="roulette-item"
-              :class="{ 
-                'is-winner': item.isWinner,
-                'is-rare': item.isRare 
+              :class="{
+                'is-winner': item.isWinner && showWinnerHighlight,
+                'is-rare': item.isRare,
               }"
             >
               <div class="item-avatar">{{ item.emoji }}</div>
@@ -58,50 +56,57 @@
             </div>
           </div>
         </div>
-        
+
         <!-- 漸層遮罩 -->
         <div class="roulette-mask roulette-mask-left"></div>
         <div class="roulette-mask roulette-mask-right"></div>
       </div>
-      
+
       <div class="drawing-hint">
         <div class="spinner">🎁</div>
-        <p>抽獎中...</p>
+        <p>{{ $t("game.drawing") }}</p>
       </div>
     </div>
-    
+
     <!-- 階段 3: 抽獎後 - 全螢幕慶祝 -->
     <Transition name="result-reveal">
       <div v-if="state === 'after'" class="result-screen">
         <div class="confetti-layer">
-          <div v-for="i in 30" :key="i" class="confetti" :style="getConfettiStyle(i)"></div>
+          <div
+            v-for="i in 30"
+            :key="i"
+            class="confetti"
+            :style="getConfettiStyle(i)"
+          ></div>
         </div>
-        
+
         <div class="result-content">
-          <div class="result-badge">🎉 抽獎結果 🎉</div>
-          
+          <div class="result-badge">🎉 {{ $t("game.drawResult") }} 🎉</div>
+
           <div class="result-card">
             <div class="drawer-info">
               <div class="avatar-large">👤</div>
               <h2>{{ currentDrawer?.name }}</h2>
-              <p class="role-label">抽獎者</p>
+              <p class="role-label">{{ $t("game.drawer") }}</p>
             </div>
-            
+
             <div class="arrow-large">➡️</div>
-            
+
             <div class="winner-info">
               <div class="avatar-large glow">🎁</div>
-              <h2 class="winner-name">{{ winnerName }}</h2>
-              <p class="role-label">禮物擁有者</p>
+              <h2 class="winner-name">{{ displayWinnerName }}</h2>
+              <p class="role-label">{{ $t("game.giftOwner") }}</p>
             </div>
           </div>
-          
-          <button 
+
+          <button
             class="btn btn-primary btn-lg next-button"
             @click="handleNext"
           >
             <span class="btn-icon">➡️</span>
-            <span class="btn-text">{{ isLastDraw ? '查看結果' : '下一位' }}</span>
+            <span class="btn-text">{{
+              isLastDraw ? $t("game.viewResult") : $t("game.nextDrawer")
+            }}</span>
           </button>
         </div>
       </div>
@@ -111,99 +116,190 @@
 
 <script setup lang="ts">
 interface Participant {
-  id: number
-  name: string
+  id: number;
+  name: string;
 }
 
 interface RouletteItem {
-  id: number
-  name: string
-  emoji: string
-  isWinner: boolean
-  isRare: boolean
+  id: number;
+  name: string;
+  emoji: string;
+  isWinner: boolean;
+  isRare: boolean;
+}
+
+interface ActualResult {
+  drawerName: string;
+  giftOwnerName: string;
 }
 
 const props = defineProps<{
-  currentDrawer: Participant | null
-  participants: Participant[]
-  drawnCount: number
-  totalCount: number
-  canDraw: boolean
-  isLastDraw: boolean
-}>()
+  currentDrawer: Participant | null;
+  participants: Participant[];
+  drawnCount: number;
+  totalCount: number;
+  canDraw: boolean;
+  isLastDraw: boolean;
+  actualResult?: ActualResult | null;
+}>();
 
 const emit = defineEmits<{
-  (e: 'draw'): void
-  (e: 'next'): void
-  (e: 'complete'): void
-}>()
+  (e: "draw"): void;
+  (e: "next"): void;
+  (e: "complete"): void;
+}>();
 
 // 狀態管理
-const state = ref<'before' | 'drawing' | 'after'>('before')
-const winnerName = ref('')
-const trackRef = ref<HTMLElement | null>(null)
-const trackStyle = ref({})
+const state = ref<"before" | "drawing" | "after">("before");
+const winnerName = ref("");
+const trackRef = ref<HTMLElement | null>(null);
+const trackStyle = ref({});
+const showWinnerHighlight = ref(false); // 控制獲勝者高亮效果)
 
 // 進度計算
 const progress = computed(() => {
-  if (props.totalCount === 0) return 0
-  return (props.drawnCount / props.totalCount) * 100
-})
+  if (props.totalCount === 0) return 0;
+  return (props.drawnCount / props.totalCount) * 100;
+});
+
+// 實際禮物擁有者名稱（優先使用父組件傳入的實際結果）
+const displayWinnerName = computed(() => {
+  return props.actualResult?.giftOwnerName || winnerName.value;
+});
 
 // 擴展項目列表（用於無限滾動效果）
-const extendedItems = ref<RouletteItem[]>([])
+const extendedItems = ref<RouletteItem[]>([]);
 
 // 抽獎動畫設定
-const ITEM_WIDTH = 100 // 每個項目寬度 (px)
-const ITEM_GAP = 8 // 項目間距 (px)
-const CLONE_TIMES = 5 // 重複次數
-const SPIN_DURATION = 3.5 // 動畫持續時間 (秒)
+const ITEM_WIDTH = 100; // 每個項目寬度 (px)
+const ITEM_GAP = 8; // 項目間距 (px)
+const CLONE_TIMES = 12; // 重複次數（增加懸念感）
+const SPIN_DURATION = 4.5; // 主動畫持續時間 (秒)
+const SLOW_DURATION = 2.5; // 減速階段時間 (秒)
+const PAUSE_DURATION = 1.2; // 停頓揭曉時間 (秒)
 
 function startDraw() {
-  if (!props.canDraw) return
-  
+  if (!props.canDraw) return;
+
+  // 重置狀態
+  showWinnerHighlight.value = false;
+  trackStyle.value = {};
+
   // 階段轉換: before -> drawing
-  state.value = 'drawing'
-  
+  state.value = "drawing";
+
   // 暫停背景動畫（如雪花）
-  document.body.classList.add('animation-paused')
-  
+  document.body.classList.add("animation-paused");
+
   // 呼叫父組件執行抽獎邏輯（先計算結果）
-  emit('draw')
-  
+  emit("draw");
+
   // 延遲執行動畫，確保結果已計算
   nextTick(() => {
-    performDrawAnimation()
-  })
+    performDrawAnimation();
+  });
 }
 
 function performDrawAnimation() {
   // 準備滾動項目
-  prepareRouletteItems()
-  
-  // 計算最終停止位置
-  const winnerIndex = extendedItems.value.findIndex(item => item.isWinner)
-  const containerWidth = trackRef.value?.parentElement?.offsetWidth || 400
-  const centerOffset = containerWidth / 2 - ITEM_WIDTH / 2
-  const targetPosition = -(winnerIndex * (ITEM_WIDTH + ITEM_GAP)) + centerOffset
-  
-  // 應用動畫
-  trackStyle.value = {
-    transform: `translateX(${targetPosition}px)`,
-    transition: `transform ${SPIN_DURATION}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`
+  prepareRouletteItems();
+
+  // 計算位置相關數值
+  const winnerIndex = extendedItems.value.findIndex((item) => item.isWinner);
+  const containerWidth = trackRef.value?.parentElement?.offsetWidth || 400;
+  const centerOffset = containerWidth / 2 - ITEM_WIDTH / 2;
+  const itemStep = ITEM_WIDTH + ITEM_GAP;
+  const targetPosition = -(winnerIndex * itemStep) + centerOffset;
+
+  // 隨機決定是否製造「假動作」效果 (30% 機率)
+  const hasFakeOut = Math.random() < 0.3;
+  // 假動作類型: 'overshoot' 過頭倒回, 'undershoot' 差一格再滑過去
+  const fakeOutType = Math.random() < 0.5 ? "overshoot" : "undershoot";
+  // 假動作偏移量 (0.3~1.2 個格子)
+  const fakeOutOffset = (0.3 + Math.random() * 0.9) * itemStep;
+
+  // 計算中間位置 (過頭或不夠的位置)
+  const fakePosition =
+    fakeOutType === "overshoot"
+      ? targetPosition - fakeOutOffset
+      : targetPosition + fakeOutOffset;
+
+  if (hasFakeOut) {
+    // 三段式動畫：快速 → 假動作位置 → 最終位置
+
+    // 第一階段：快速滾動到假動作位置
+    trackStyle.value = {
+      transform: `translateX(${fakePosition}px)`,
+      transition: `transform ${SPIN_DURATION}s cubic-bezier(0.1, 0.7, 0.3, 1)`,
+    };
+
+    // 第二階段：慢慢移動到最終位置（製造緊張感）
+    setTimeout(() => {
+      trackStyle.value = {
+        transform: `translateX(${targetPosition}px)`,
+        transition: `transform ${SLOW_DURATION}s cubic-bezier(0.25, 0.1, 0.25, 1)`,
+      };
+    }, SPIN_DURATION * 1000);
+
+    // 第三階段：停頓後顯示高亮和結果
+    setTimeout(
+      () => {
+        showWinnerHighlight.value = true;
+      },
+      (SPIN_DURATION + SLOW_DURATION) * 1000 + 300,
+    );
+
+    setTimeout(
+      () => {
+        state.value = "after";
+        document.body.classList.remove("animation-paused");
+      },
+      (SPIN_DURATION + SLOW_DURATION + PAUSE_DURATION) * 1000,
+    );
+  } else {
+    // 兩段式動畫：快速 → 極慢減速
+
+    // 第一階段：快速滾動
+    const almostPosition = targetPosition + itemStep * 2; // 差兩格
+    trackStyle.value = {
+      transform: `translateX(${almostPosition}px)`,
+      transition: `transform ${SPIN_DURATION}s cubic-bezier(0.1, 0.7, 0.3, 1)`,
+    };
+
+    // 第二階段：極慢滑到最終位置
+    setTimeout(() => {
+      trackStyle.value = {
+        transform: `translateX(${targetPosition}px)`,
+        transition: `transform ${SLOW_DURATION}s cubic-bezier(0.15, 0, 0.25, 1)`,
+      };
+    }, SPIN_DURATION * 1000);
+
+    // 停頓後顯示高亮
+    setTimeout(
+      () => {
+        showWinnerHighlight.value = true;
+      },
+      (SPIN_DURATION + SLOW_DURATION) * 1000 + 300,
+    );
+
+    // 再停頓後顯示結果
+    setTimeout(
+      () => {
+        state.value = "after";
+        document.body.classList.remove("animation-paused");
+      },
+      (SPIN_DURATION + SLOW_DURATION + PAUSE_DURATION) * 1000,
+    );
   }
-  
-  // 動畫結束後顯示結果
-  setTimeout(() => {
-    state.value = 'after'
-    document.body.classList.remove('animation-paused')
-  }, SPIN_DURATION * 1000)
 }
 
 function prepareRouletteItems() {
-  const items: RouletteItem[] = []
-  const emojis = ['🎁', '🎀', '🎊', '🎉', '🎈', '⭐', '💝', '🎄']
-  
+  const items: RouletteItem[] = [];
+  const emojis = ["🎁", "🎀", "🎊", "🎉", "🎈", "⭐", "💝", "🎄"];
+
+  // 取得實際結果的禮物擁有者名字
+  const actualWinnerName = props.actualResult?.giftOwnerName || "";
+
   // 克隆參與者列表多次
   for (let clone = 0; clone < CLONE_TIMES; clone++) {
     props.participants.forEach((p, idx) => {
@@ -212,50 +308,70 @@ function prepareRouletteItems() {
         name: p.name,
         emoji: emojis[idx % emojis.length],
         isWinner: false,
-        isRare: Math.random() > 0.7 // 30% 機率是稀有
-      })
-    })
+        isRare: Math.random() > 0.7, // 30% 機率是稀有
+      });
+    });
   }
-  
+
   // 設定中獎項目（在中間偏後的位置）
-  const winnerIdx = Math.floor(items.length * 0.65)
-  items[winnerIdx].isWinner = true
-  items[winnerIdx].isRare = true
-  winnerName.value = items[winnerIdx].name
-  
-  extendedItems.value = items
+  // 找到實際獲勝者在目標區域的位置
+  const targetZoneStart = Math.floor(items.length * 0.6);
+  const targetZoneEnd = Math.floor(items.length * 0.75);
+
+  // 在目標區域中找到實際獲勝者
+  let winnerIdx = -1;
+  for (let i = targetZoneStart; i < targetZoneEnd; i++) {
+    if (items[i].name === actualWinnerName) {
+      winnerIdx = i;
+      break;
+    }
+  }
+
+  // 如果找不到，就隨機選一個位置並設置（名字在動畫期間不會透露）
+  if (winnerIdx === -1) {
+    winnerIdx = Math.floor(items.length * 0.65);
+  }
+
+  items[winnerIdx].isWinner = true;
+  items[winnerIdx].isRare = true;
+  // 不要在這裡設置 winnerName，直到動畫結束
+  // winnerName 會在 displayWinnerName computed 中從 actualResult 取得
+
+  extendedItems.value = items;
 }
 
 function handleNext() {
   if (props.isLastDraw) {
-    emit('complete')
+    emit("complete");
   } else {
-    state.value = 'before'
-    trackStyle.value = {}
-    extendedItems.value = []
-    emit('next')
+    state.value = "before";
+    trackStyle.value = {};
+    extendedItems.value = [];
+    showWinnerHighlight.value = false;
+    emit("next");
   }
 }
 
 // 彩帶動畫樣式生成
 function getConfettiStyle(index: number) {
-  const colors = ['#BF092F', '#3B9797', '#62B6B7', '#F59E0B', '#FFD700']
+  const colors = ["#BF092F", "#3B9797", "#62B6B7", "#F59E0B", "#FFD700"];
   return {
     left: `${Math.random() * 100}%`,
     animationDelay: `${Math.random() * 3}s`,
     backgroundColor: colors[index % colors.length],
-    animationDuration: `${2 + Math.random() * 2}s`
-  }
+    animationDuration: `${2 + Math.random() * 2}s`,
+  };
 }
 
 // 暴露重置方法
 defineExpose({
   reset: () => {
-    state.value = 'before'
-    trackStyle.value = {}
-    extendedItems.value = []
-  }
-})
+    state.value = "before";
+    trackStyle.value = {};
+    extendedItems.value = [];
+    showWinnerHighlight.value = false;
+  },
+});
 </script>
 
 <style scoped>
@@ -331,7 +447,11 @@ defineExpose({
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--theme-accent) 0%, var(--theme-secondary) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--theme-accent) 0%,
+    var(--theme-secondary) 100%
+  );
   border-radius: 6px;
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 0 12px var(--theme-accent);
@@ -353,8 +473,13 @@ defineExpose({
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 /* ========== 階段 2: 抽獎中 ========== */
@@ -371,14 +496,15 @@ defineExpose({
   height: 160px;
   overflow: hidden;
   border-radius: 20px;
-  background: linear-gradient(90deg, 
-    var(--theme-bg-deep) 0%, 
-    rgba(0, 0, 0, 0.8) 20%, 
-    rgba(0, 0, 0, 0.8) 80%, 
+  background: linear-gradient(
+    90deg,
+    var(--theme-bg-deep) 0%,
+    rgba(0, 0, 0, 0.8) 20%,
+    rgba(0, 0, 0, 0.8) 80%,
     var(--theme-bg-deep) 100%
   );
   border: 2px solid var(--theme-accent);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.5),
     inset 0 0 60px rgba(98, 182, 183, 0.1);
 }
@@ -392,8 +518,9 @@ defineExpose({
   height: 100%;
   z-index: 10;
   pointer-events: none;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
     rgba(98, 182, 183, 0.2) 20%,
     rgba(98, 182, 183, 0.4) 50%,
     rgba(98, 182, 183, 0.2) 80%,
@@ -415,8 +542,13 @@ defineExpose({
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(8px); }
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(8px);
+  }
 }
 
 .roulette-track-container {
@@ -447,32 +579,43 @@ defineExpose({
 }
 
 .roulette-item.is-rare {
-  background: linear-gradient(135deg, 
-    rgba(255, 215, 0, 0.1) 0%, 
+  background: linear-gradient(
+    135deg,
+    rgba(255, 215, 0, 0.1) 0%,
     rgba(255, 165, 0, 0.1) 100%
   );
   border-color: rgba(255, 215, 0, 0.5);
-  box-shadow: 
+  box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 0 20px rgba(255, 215, 0, 0.3);
 }
 
 .roulette-item.is-winner {
-  background: linear-gradient(135deg, 
-    var(--theme-primary) 0%, 
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary) 0%,
     var(--theme-accent) 100%
   );
-  border-color: #FFD700;
+  border-color: #ffd700;
   transform: scale(1.1);
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(191, 9, 47, 0.6),
     0 0 40px rgba(255, 215, 0, 0.8);
   animation: winner-glow 1s infinite;
 }
 
 @keyframes winner-glow {
-  0%, 100% { box-shadow: 0 8px 24px rgba(191, 9, 47, 0.6), 0 0 40px rgba(255, 215, 0, 0.8); }
-  50% { box-shadow: 0 8px 32px rgba(191, 9, 47, 0.8), 0 0 60px rgba(255, 215, 0, 1); }
+  0%,
+  100% {
+    box-shadow:
+      0 8px 24px rgba(191, 9, 47, 0.6),
+      0 0 40px rgba(255, 215, 0, 0.8);
+  }
+  50% {
+    box-shadow:
+      0 8px 32px rgba(191, 9, 47, 0.8),
+      0 0 60px rgba(255, 215, 0, 1);
+  }
 }
 
 .item-avatar {
@@ -508,7 +651,11 @@ defineExpose({
 
 .roulette-mask-right {
   right: 0;
-  background: linear-gradient(270deg, var(--theme-bg-deep) 0%, transparent 100%);
+  background: linear-gradient(
+    270deg,
+    var(--theme-bg-deep) 0%,
+    transparent 100%
+  );
 }
 
 .drawing-hint {
@@ -523,8 +670,12 @@ defineExpose({
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ========== 階段 3: 抽獎後 ========== */
@@ -534,7 +685,11 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, var(--theme-bg-start) 0%, var(--theme-bg-end) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-bg-start) 0%,
+    var(--theme-bg-end) 100%
+  );
   z-index: 2000;
   display: flex;
   align-items: center;
@@ -585,9 +740,17 @@ defineExpose({
 }
 
 @keyframes bounce-in {
-  0% { transform: scale(0); opacity: 0; }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .result-card {
@@ -600,7 +763,7 @@ defineExpose({
   backdrop-filter: blur(20px);
   border-radius: 24px;
   border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 
+  box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   width: 100%;
@@ -635,12 +798,15 @@ defineExpose({
 }
 
 @keyframes glow-pulse {
-  0%, 100% { 
-    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
+  0%,
+  100% {
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 20px rgba(255, 215, 0, 0.6));
     transform: scale(1);
   }
-  50% { 
-    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 40px rgba(255, 215, 0, 1));
+  50% {
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4))
+      drop-shadow(0 0 40px rgba(255, 215, 0, 1));
     transform: scale(1.1);
   }
 }
@@ -673,8 +839,13 @@ defineExpose({
 }
 
 @keyframes arrow-bounce {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(10px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(10px);
+  }
 }
 
 .next-button {
@@ -704,8 +875,12 @@ defineExpose({
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* 響應式 */
@@ -715,28 +890,28 @@ defineExpose({
     gap: 20px;
     padding: 30px 20px;
   }
-  
+
   .arrow-large {
     transform: rotate(90deg);
     font-size: 2.5rem;
   }
-  
+
   .drawer-name {
     font-size: 1.5rem;
   }
-  
+
   .avatar-large {
     font-size: 4rem;
   }
-  
+
   .result-badge {
     font-size: 1.2rem;
   }
-  
+
   .roulette-item {
     flex: 0 0 80px;
   }
-  
+
   .item-avatar {
     font-size: 2rem;
   }
