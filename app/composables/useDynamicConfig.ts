@@ -6,11 +6,30 @@ interface SiteSettings {
   siteSubtitle: string
   siteIconLeft: string
   siteIconRight: string
-  themePrimary: string
-  themeSecondary: string
-  themeBgFrom: string
-  themeBgTo: string
+  // 主要色彩
+  themePrimary: string      // 主要品牌色
+  themeSecondary: string    // 次要品牌色
+  themeAccent: string       // 強調色
+  // 背景色彩
+  themeBgFrom: string       // 背景漸層起始
+  themeBgTo: string         // 背景漸層結束
+  themeBgDeep: string       // 深色背景
+  // 表面色彩
+  themeSurface: string      // 卡片/表面顏色
+  themeSurfaceLight: string // 淺色表面
+  themeSurfaceHover: string // 懸停表面
+  // 文字色彩
+  themeText: string         // 主要文字
+  themeTextSecondary: string // 次要文字
+  themeTextMuted: string    // 弱化文字
+  // 效果色彩
+  themeSuccess: string      // 成功色
+  themeWarning: string      // 警告色
+  themeDanger: string       // 危險色
+  themeInfo: string         // 資訊色
+  // 特效
   showSnowflakes: boolean
+  passwordProtection: boolean // 密碼保護功能
 }
 
 export function useDynamicConfig() {
@@ -32,11 +51,30 @@ export function useDynamicConfig() {
     siteSubtitle: runtimeConfig.public.siteSubtitle as string,
     siteIconLeft: runtimeConfig.public.siteIconLeft as string,
     siteIconRight: runtimeConfig.public.siteIconRight as string,
-    themePrimary: runtimeConfig.public.themePrimary as string,
-    themeSecondary: runtimeConfig.public.themeSecondary as string,
-    themeBgFrom: runtimeConfig.public.themeBgFrom as string,
-    themeBgTo: runtimeConfig.public.themeBgTo as string,
+    // 主要色彩 - 深紅與青藍配色
+    themePrimary: '#BF092F',      // 深紅色（主要行動）
+    themeSecondary: '#3B9797',    // 青綠色（次要行動）
+    themeAccent: '#62B6B7',       // 亮青色（強調/高亮）
+    // 背景色彩 - 深藍漸層
+    themeBgFrom: '#102A43',       // 深藍色（漸層起始）
+    themeBgTo: '#16476A',         // 中藍色（漸層結束）
+    themeBgDeep: '#132440',       // 極深藍（深色背景）
+    // 表面色彩 - 半透明層次
+    themeSurface: 'rgba(255, 255, 255, 0.08)',     // 卡片表面
+    themeSurfaceLight: 'rgba(255, 255, 255, 0.12)', // 淺色表面
+    themeSurfaceHover: 'rgba(255, 255, 255, 0.16)', // 懸停效果
+    // 文字色彩
+    themeText: '#FFFFFF',                          // 主要文字（純白）
+    themeTextSecondary: 'rgba(255, 255, 255, 0.8)', // 次要文字
+    themeTextMuted: 'rgba(255, 255, 255, 0.5)',    // 弱化文字
+    // 效果色彩
+    themeSuccess: '#3B9797',      // 成功色（青綠）
+    themeWarning: '#F59E0B',      // 警告色（琥珀）
+    themeDanger: '#BF092F',       // 危險色（深紅）
+    themeInfo: '#62B6B7',         // 資訊色（亮青）
+    // 特效
     showSnowflakes: runtimeConfig.public.showSnowflakes as boolean,
+    passwordProtection: (runtimeConfig.public.passwordProtection ?? false) as boolean,
   })
   
   // 響應式設定
@@ -85,10 +123,27 @@ export function useDynamicConfig() {
   
   // 計算 CSS 樣式
   const themeStyle = computed(() => ({
+    // 主要色彩
     '--theme-primary': settings.value.themePrimary,
     '--theme-secondary': settings.value.themeSecondary,
+    '--theme-accent': settings.value.themeAccent,
+    // 背景色彩
     '--theme-bg-start': settings.value.themeBgFrom,
     '--theme-bg-end': settings.value.themeBgTo,
+    '--theme-bg-deep': settings.value.themeBgDeep,
+    // 表面色彩
+    '--theme-surface': settings.value.themeSurface,
+    '--theme-surface-light': settings.value.themeSurfaceLight,
+    '--theme-surface-hover': settings.value.themeSurfaceHover,
+    // 文字色彩
+    '--theme-text': settings.value.themeText,
+    '--theme-text-secondary': settings.value.themeTextSecondary,
+    '--theme-text-muted': settings.value.themeTextMuted,
+    // 效果色彩
+    '--theme-success': settings.value.themeSuccess,
+    '--theme-warning': settings.value.themeWarning,
+    '--theme-danger': settings.value.themeDanger,
+    '--theme-info': settings.value.themeInfo,
   }))
   
   // 從環境變數讀取的固定設定（不可動態修改）

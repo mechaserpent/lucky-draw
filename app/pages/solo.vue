@@ -52,38 +52,15 @@
           </select>
         </div>
 
-        <!-- 進階選項入口 -->
-        <div class="advanced-toggle" @click="showAdvancedModal = true">
-          🔧 進階選項
-        </div>
-
-        <!-- 進階選項區（隱藏） -->
-        <div class="advanced-section" v-if="showAdvanced">
-          <div class="fixed-pair-item">
-            <select v-model="fixedDrawerId">
-              <option :value="null">選擇 A</option>
-              <option v-for="(p, idx) in state.participants" :key="p.id" :value="p.id">
-                #{{ idx + 1 }}
-              </option>
-            </select>
-            <span>→</span>
-            <select v-model="fixedGiftId">
-              <option :value="null">選擇 B</option>
-              <option v-for="(p, idx) in state.participants" :key="p.id" :value="p.id">
-                #{{ idx + 1 }}
-              </option>
-            </select>
-            <button class="btn btn-secondary" @click="handleAddFixedPair">➕</button>
-          </div>
-
-          <div class="fixed-pairs-list">
-            <span v-for="fp in state.fixedPairs" :key="fp.drawerId" class="fixed-pair-tag">
-              #{{ getParticipantIndex(fp.drawerId) }} → #{{ getParticipantIndex(fp.giftOwnerId) }}
-              <span class="remove" @click="removeFixedPair(fp.drawerId)">✕</span>
-            </span>
-            <p v-if="state.fixedPairs.length === 0" style="opacity: 0.6; font-size: 0.9rem;">無設定</p>
-          </div>
-        </div>
+        <!-- 進階選項 -->
+        <AdvancedSettings
+          :participants="state.participants"
+          :fixed-pairs="state.fixedPairs"
+          :is-open="showAdvanced"
+          @toggle="showAdvancedModal = true"
+          @add-pair="handleAddFixedPair"
+          @remove-pair="removeFixedPair"
+        />
 
         <div class="seed-display">
           🎲 Seed: {{ state.seed }}
@@ -110,52 +87,21 @@
     <!-- 抽獎階段 -->
     <template v-if="state.phase === 'drawing'">
       <div class="card">
-        <h2>
-          🎰 抽獎進行中
-          <span class="status-badge in-progress">
-            {{ state.currentIndex + 1 }} / {{ state.participants.length }}
-          </span>
-        </h2>
-
-        <div class="draw-area">
-          <div class="current-drawer">
-            現在由 <span class="name">{{ getCurrentDrawer()?.name || '-' }}</span> 抽獎
-          </div>
-
-          <div class="draw-box" :class="{ drawing: isDrawing }">
-            <span class="content">{{ drawBoxContent }}</span>
-          </div>
-
-          <div class="draw-result" :class="{ show: showResult }">
-            抽到 <span class="gift-owner">{{ resultGiftOwner }}</span>
-          </div>
-
-          <button v-if="!hasDrawnCurrent" class="btn btn-primary btn-lg" @click="handlePerformDraw"
-            :disabled="isDrawing">
-            🎲 抽獎！
-          </button>
-          <button v-else-if="state.currentIndex < state.participants.length - 1" class="btn btn-success btn-lg"
-            @click="handleNextDraw">
-            ➡️ 下一位
-          </button>
-        </div>
+        <RouletteAnimation
+          :current-drawer="getCurrentDrawer()"
+          :participants="state.participants"
+          :drawn-count="state.results.length"
+          :total-count="state.participants.length"
+          :can-draw="!hasDrawnCurrent"
+          :is-last-draw="state.currentIndex >= state.participants.length - 1"
+          @draw="handlePerformDraw"
+          @next="handleNextDraw"
+          @complete="celebrate"
+        />
       </div>
 
       <!-- 結果列表 -->
-      <div class="card">
-        <h2>📋 抽獎結果</h2>
-        <div class="results-list">
-          <div v-if="state.results.length === 0" style="opacity: 0.6; text-align: center;">
-            尚無抽獎結果
-          </div>
-          <div v-for="r in state.results" :key="r.order" class="result-item">
-            <span class="order">{{ r.order }}</span>
-            <span class="drawer">{{ getParticipant(r.drawerId)?.name }}</span>
-            <span class="arrow">➡️</span>
-            <span class="gift">{{ getParticipant(r.giftOwnerId)?.name }}</span>
-          </div>
-        </div>
-      </div>
+      <ResultsList :results="formattedResults" />
 
       <div class="controls">
         <button class="btn btn-secondary" @click="showViewSettingsModal = true">
@@ -168,30 +114,12 @@
     </template>
 
     <!-- 進度側邊面板 -->
-    <div class="progress-panel" v-if="state.phase === 'drawing' || state.phase === 'complete'">
-      <h4>📊 抽獎進度</h4>
-      <div class="progress-content">
-        <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: `${(state.results.length / state.participants.length) * 100}%` }">
-          </div>
-        </div>
-        <div class="progress-text">
-          {{ state.results.length }} / {{ state.participants.length }}
-        </div>
-        <div class="player-status-list">
-          <div v-for="(p, idx) in state.participants" :key="p.id" class="player-status-item" :class="{
-            'is-current': state.drawOrder[state.currentIndex] === p.id,
-            'has-drawn': state.results.some(r => r.drawerId === p.id)
-          }">
-            <span class="status-icon">
-              {{state.results.some(r => r.drawerId === p.id) ? '✅' :
-                state.drawOrder[state.currentIndex] === p.id ? '🎯' : '⏳'}}
-            </span>
-            <span class="player-name">{{ idx + 1 }}. {{ p.name }}</span>
-          </div>
-        </div>
-      </div>
-    </div> <!-- 完成階段 - 跳轉至結果頁面 -->
+    <ProgressPanel 
+      v-if="state.phase === 'drawing' || state.phase === 'complete'"
+      :drawn-count="state.results.length"
+      :total-count="state.participants.length"
+      :players="progressPlayers"
+    /> <!-- 完成階段 - 跳轉至結果頁面 -->
     <template v-if="state.phase === 'complete'">
       <div class="loading-overlay">
         <div class="loading-content">
@@ -204,63 +132,40 @@
     <!-- 彈窗們 -->
 
     <!-- 進階選項密碼驗證 -->
-    <div class="modal-overlay" v-if="showAdvancedModal" @click.self="showAdvancedModal = false">
-      <div class="modal-content">
-        <h3>🔐 進階選項驗證</h3>
-        <input type="password" class="input" v-model="advancedPassword" placeholder="輸入密碼..."
-          @keypress.enter="confirmAdvanced" autocomplete="new-password" data-lpignore="true" data-form-type="other"
-          autofocus>
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showAdvancedModal = false">取消</button>
-          <button class="btn btn-primary" @click="confirmAdvanced">確認</button>
-        </div>
-      </div>
-    </div>
+    <PasswordModal
+      v-model="showAdvancedModal"
+      title="進階選項驗證"
+      confirm-text="確認"
+      confirm-button-class="btn-primary"
+      @confirm="confirmAdvanced"
+    />
 
     <!-- 重設 Seed -->
-    <div class="modal-overlay" v-if="showResetSeedModal" @click.self="showResetSeedModal = false">
-      <div class="modal-content">
-        <h3>🔐 重設 Seed</h3>
-        <input type="password" class="input" v-model="resetPassword" placeholder="輸入密碼..."
-          @keypress.enter="confirmResetSeed" autocomplete="new-password" data-lpignore="true" data-form-type="other">
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showResetSeedModal = false">取消</button>
-          <button class="btn btn-danger" @click="confirmResetSeed">確認重設</button>
-        </div>
-      </div>
-    </div>
+    <PasswordModal
+      v-model="showResetSeedModal"
+      title="重設 Seed"
+      confirm-text="確認重設"
+      @confirm="confirmResetSeed"
+    />
 
     <!-- 重置全部 -->
-    <div class="modal-overlay" v-if="showResetAllModal" @click.self="showResetAllModal = false">
-      <div class="modal-content">
-        <h3>🔐 重置全部</h3>
-        <p style="font-size: 0.9rem; margin-bottom: 15px; opacity: 0.8;">
-          這將清除所有資料並回到設定頁面
-        </p>
-        <input type="password" class="input" v-model="resetPassword" placeholder="輸入密碼..."
-          @keypress.enter="confirmResetAll" autocomplete="new-password" data-lpignore="true" data-form-type="other">
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showResetAllModal = false">取消</button>
-          <button class="btn btn-danger" @click="confirmResetAll">確認重置</button>
-        </div>
-      </div>
-    </div>
+    <PasswordModal
+      v-model="showResetAllModal"
+      title="重置全部"
+      description="這將清除所有資料並回到設定頁面"
+      confirm-text="確認重置"
+      @confirm="confirmResetAll"
+    />
 
     <!-- 清除緩存 -->
-    <div class="modal-overlay" v-if="showClearCacheModal" @click.self="showClearCacheModal = false">
-      <div class="modal-content">
-        <h3>🧹 清除緩存</h3>
-        <p style="font-size: 0.9rem; margin-bottom: 15px; opacity: 0.8;">
-          這將清除所有本地儲存資料，包括密碼設定。
-        </p>
-        <input type="password" class="input" v-model="resetPassword" placeholder="輸入密碼..."
-          @keypress.enter="confirmClearCache" autocomplete="new-password" data-lpignore="true" data-form-type="other">
-        <div class="modal-buttons">
-          <button class="btn btn-secondary" @click="showClearCacheModal = false">取消</button>
-          <button class="btn btn-danger" @click="confirmClearCache">確認清除</button>
-        </div>
-      </div>
-    </div>
+    <PasswordModal
+      v-model="showClearCacheModal"
+      title="清除緩存"
+      icon="🧹"
+      description="這將清除所有本地儲存資料，包括密碼設定。"
+      confirm-text="確認清除"
+      @confirm="confirmClearCache"
+    />
 
     <!-- 查看設定 -->
     <div class="modal-overlay" v-if="showViewSettingsModal" @click.self="showViewSettingsModal = false">
@@ -302,10 +207,21 @@
         </div>
       </div>
     </div>
+
+    <!-- 分享結果模態框 -->
+    <SocialShareModal
+      v-model="showShareModal"
+      :results="formattedResults"
+      :seed="state.seed"
+      mode="solo"
+      @toast="handleToast"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+
 const router = useRouter()
 const dynamicConfig = useDynamicConfig()
 const { addRecord: addHistoryRecord } = useHistory()
@@ -409,64 +325,69 @@ function handleAddParticipant() {
 }
 
 // 新增進階配對
-function handleAddFixedPair() {
-  if (!fixedDrawerId.value || !fixedGiftId.value) {
-    alert('請選擇 A 和 B')
-    return
-  }
-  if (fixedDrawerId.value === fixedGiftId.value) {
+function handleAddFixedPair(drawerId: number, giftId: number) {
+  if (drawerId === giftId) {
     alert('A 和 B 不能相同！')
     return
   }
 
-  if (!addFixedPair(fixedDrawerId.value, fixedGiftId.value)) {
+  if (!addFixedPair(drawerId, giftId)) {
     alert('此項目已存在設定')
     return
   }
-
-  fixedDrawerId.value = null
-  fixedGiftId.value = null
 }
 
+// Computed properties for components
+const formattedResults = computed(() => {
+  return state.value.results.map(r => ({
+    order: r.order,
+    drawerName: getParticipant(r.drawerId)?.name || '?',
+    giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
+  }))
+})
+
+const progressPlayers = computed(() => {
+  return state.value.participants.map((p, idx) => ({
+    id: p.id,
+    name: `${idx + 1}. ${p.name}`,
+    isCurrent: state.value.drawOrder[state.value.currentIndex] === p.id,
+    hasDrawn: state.value.results.some((r: any) => r.drawerId === p.id)
+  }))
+})
+
 // 確認進階選項
-function confirmAdvanced() {
-  if (!verifyPassword(advancedPassword.value)) {
+function confirmAdvanced(password: string) {
+  if (!verifyPassword(password)) {
     alert('密碼錯誤！')
-    advancedPassword.value = ''
     return
   }
 
   showAdvancedModal.value = false
   showAdvanced.value = true
-  advancedPassword.value = ''
 }
 
 // 確認重設 Seed
-function confirmResetSeed() {
-  if (!verifyPassword(resetPassword.value)) {
+function confirmResetSeed(password: string) {
+  if (!verifyPassword(password)) {
     alert('密碼錯誤！')
-    resetPassword.value = ''
     return
   }
 
   resetSeed()
   showResetSeedModal.value = false
-  resetPassword.value = ''
   alert('Seed 已重設為: ' + state.value.seed)
 }
 
 // 確認重置全部
-function confirmResetAll() {
-  if (!verifyPassword(resetPassword.value)) {
+function confirmResetAll(password: string) {
+  if (!verifyPassword(password)) {
     alert('密碼錯誤！')
-    resetPassword.value = ''
     return
   }
 
   resetAll()
   showResetAllModal.value = false
   showAdvanced.value = false
-  resetPassword.value = ''
 
   // 重置抽獎 UI 狀態
   isDrawing.value = false
@@ -476,10 +397,9 @@ function confirmResetAll() {
 }
 
 // 確認清除緩存
-function confirmClearCache() {
-  if (!verifyPassword(resetPassword.value)) {
+function confirmClearCache(password: string) {
+  if (!verifyPassword(password)) {
     alert('密碼錯誤！')
-    resetPassword.value = ''
     return
   }
 
@@ -511,165 +431,35 @@ function handleStartDraw() {
   drawBoxContent.value = '🎁'
 }
 
-// 執行抽獎
+// 執行抽獎 - 由 RouletteAnimation 組件調用
 function handlePerformDraw() {
-  if (isDrawing.value) return
-
-  isDrawing.value = true
-  showResult.value = false
-
-  // 動畫：快速切換名字
-  let shuffleCount = 0
-  const maxShuffles = 20
-
-  const shuffleInterval = setInterval(() => {
-    const randomP = state.value.participants[Math.floor(Math.random() * state.value.participants.length)]
-    drawBoxContent.value = randomP.name.charAt(0)
-    shuffleCount++
-
-    if (shuffleCount >= maxShuffles) {
-      clearInterval(shuffleInterval)
-
-      // 記錄結果
-      const result = performDraw()
-      if (result) {
-        const giftOwner = getParticipant(result.giftOwnerId)
-        if (giftOwner) {
-          drawBoxContent.value = giftOwner.name.charAt(0)
-          resultGiftOwner.value = giftOwner.name
-        }
-      }
-
-      isDrawing.value = false
-      showResult.value = true
-      hasDrawnCurrent.value = true
-
-      // 如果是最後一個人，自動觸發完成特效
-      if (state.value.currentIndex >= state.value.participants.length - 1) {
-        // 延遲一下讓結果先顯示
-        setTimeout(() => {
-          state.value.phase = 'complete'
-          celebrate()
-        }, 500)
-      }
+  // 記錄結果（動畫由 RouletteAnimation 組件處理）
+  const result = performDraw()
+  if (result) {
+    const giftOwner = getParticipant(result.giftOwnerId)
+    if (giftOwner) {
+      resultGiftOwner.value = giftOwner.name
     }
-  }, 80)
+  }
+
+  hasDrawnCurrent.value = true
 }
 
-// 下一位抽獎
+// 下一位抽獎 - 由 RouletteAnimation 組件調用
 function handleNextDraw() {
   if (nextDraw()) {
     hasDrawnCurrent.value = false
-    showResult.value = false
-    drawBoxContent.value = '🎁'
-  } else {
-    // 遊戲完成，觸發慶祝動畫
-    celebrate()
   }
 }
 
-// 分享結果
 // 分享結果 - 打開分享選單
-async function shareResults() {
+function shareResults() {
   showShareModal.value = true
 }
 
-// 分享文字版
-async function handleShareText() {
-  // 產生文字結果
-  const lines = ['🎁 交換禮物抽籤結果 🎁', '']
-  state.value.results.forEach(r => {
-    const drawer = getParticipant(r.drawerId)?.name || '?'
-    const giftOwner = getParticipant(r.giftOwnerId)?.name || '?'
-    lines.push(`${r.order}. ${drawer} ➡️ ${giftOwner}`)
-  })
-  lines.push('')
-  lines.push(`🎲 Seed: ${state.value.seed}`)
-
-  const text = lines.join('\n')
-
-  // 直接複製到剪貼簿
-  try {
-    await navigator.clipboard.writeText(text)
-    alert('✅ 結果已複製到剪貼簿！')
-    showShareModal.value = false
-  } catch (e) {
-    alert('❌ 複製失敗，請手動複製')
-  }
-}
-
-// 分享圖片版
-async function handleShareImage() {
-  const results = state.value.results.map(r => ({
-    order: r.order,
-    drawerName: getParticipant(r.drawerId)?.name || '?',
-    giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
-  }))
-
-  const blob = await generateResultImage(results, state.value.seed, 'solo')
-
-  if (blob) {
-    const success = await shareImage(
-      blob,
-      '交換禮物抽籤結果',
-      '🎁 看看我的交換禮物抽籤結果！'
-    )
-
-    if (success) {
-      showShareModal.value = false
-    } else {
-      alert('分享失敗，請嘗試下載圖片')
-    }
-  }
-}
-
-// 下載圖片
-async function handleDownloadImage() {
-  const results = state.value.results.map(r => ({
-    order: r.order,
-    drawerName: getParticipant(r.drawerId)?.name || '?',
-    giftOwnerName: getParticipant(r.giftOwnerId)?.name || '?'
-  }))
-
-  const blob = await generateResultImage(results, state.value.seed, 'solo')
-
-  if (blob) {
-    downloadImage(blob, `交換禮物結果_${state.value.seed}.png`)
-    alert('下載完成！')
-    showShareModal.value = false
-  }
-}
-
-// 分享到社交媒體
-async function shareToSocial(platform: string) {
-  if (platform === 'copy') {
-    await copyShareLink()
-    return
-  }
-
-  if (platform === 'instagram') {
-    // Instagram 需要通過圖片分享
-    await handleShareImage()
-    return
-  }
-
-  const text = `🎁 交換禮物抽籤結果！Seed: ${state.value.seed}`
-  const url = window.location.href
-  const links = getSocialShareLinks(text, url)
-
-  const socialUrl = links[platform]
-  if (socialUrl) {
-    window.open(socialUrl, '_blank', 'width=600,height=400')
-    showShareModal.value = false
-  }
-}
-
-// 複製分享連結
-async function copyShareLink() {
-  const url = window.location.href
-  await navigator.clipboard.writeText(url)
-  alert('連結已複製！')
-  showShareModal.value = false
+// Toast 提示處理
+function handleToast(message: string) {
+  alert(message)
 }
 
 // 慶祝動畫

@@ -114,10 +114,16 @@
             </div>
           </div>
 
-          <!-- 進階選項入口 -->
-          <div class="advanced-toggle" @click="showAdvancedSettings = true">
-            🔧 進階選項
-          </div>
+          <!-- 進階選項 -->
+          <AdvancedSettings
+            :participants="roomState.players.map(p => ({ id: p.participantId, name: p.name }))"
+            :fixed-pairs="fixedPairs"
+            :is-open="showAdvanced"
+            :show-index="true"
+            @toggle="handleToggleAdvanced"
+            @add-pair="handleAddFixedPair"
+            @remove-pair="removeFixedPair"
+          />
 
           <!-- 允許觀眾 -->
           <div class="spectator-toggle">
@@ -155,62 +161,33 @@
     <!-- 遊戲進行中 -->
     <template v-else-if="roomState?.gameState === 'playing'">
       <div class="card">
-        <h2>
-          🎰 抽獎進行中
-          <span class="status-badge in-progress">
-            {{ roomState.results.length + 1 }} / {{ roomState.players.length }}
-          </span>
-        </h2>
-
-        <div class="draw-area">
-          <div class="current-drawer">
-            現在由 <span class="name">{{ currentDrawerName }}</span> 抽獎
-            <span v-if="isCurrentDrawer()" class="your-turn">（輪到你了！）</span>
-          </div>
-
-          <div class="draw-box" :class="{ drawing: isDrawing }">
-            <span class="content">{{ drawBoxContent }}</span>
-          </div>
-
-          <div class="draw-result" :class="{ show: showResult }">
-            抽到 <span class="gift-owner">{{ resultGiftOwner }}</span>
-          </div>
-
-          <!-- 自己是當前抽獎者 -->
-          <button v-if="isCurrentDrawer() && !hasDrawnCurrent" class="btn btn-primary btn-lg" @click="handlePerformDraw"
-            :disabled="isDrawing">
-            🎲 抽獎！
-          </button>
-
-          <!-- 主機可以幫忙抽 -->
-          <button v-else-if="isHost() && !hasDrawnCurrent" class="btn btn-secondary btn-lg" @click="handleHostDraw"
-            :disabled="isDrawing">
-            🎲 代替抽獎
-          </button>
-
-          <!-- 主機控制下一位 -->
-          <button v-if="isHost() && hasDrawnCurrent && roomState.currentIndex < roomState.players.length - 1"
-            class="btn btn-success btn-lg" @click="handleNextDrawer">
-            ➡️ 下一位
-          </button>
+        <RouletteAnimation
+          :current-drawer="{ id: getCurrentDrawerId(), name: currentDrawerName }"
+          :participants="roomState.players.map(p => ({ id: p.participantId, name: p.name }))"
+          :drawn-count="roomState.results.length"
+          :total-count="roomState.players.length"
+          :can-draw="(isCurrentDrawer() || isHost()) && !hasDrawnCurrent"
+          :is-last-draw="roomState.currentIndex >= roomState.players.length - 1"
+          @draw="isCurrentDrawer() ? handlePerformDraw() : handleHostDraw()"
+          @next="handleNextDrawer"
+          @complete="() => {}"
+        />
+        
+        <!-- 提示訊息 -->
+        <div v-if="isCurrentDrawer()" class="your-turn-hint">
+          <p>🎯 輪到你了！點擊開始抽獎</p>
+        </div>
+        <div v-else-if="isHost() && !isCurrentDrawer()" class="host-hint">
+          <p>👑 你可以代替玩家抽獎</p>
+        </div>
+        <div v-else class="waiting-hint">
+          <p>⏳ 等待 {{ currentDrawerName }} 抽獎中...</p>
         </div>
       </div>
 
       <!-- 結果列表 -->
-      <div class="card">
-        <h2>📋 抽獎結果</h2>
-        <div class="results-list">
-          <div v-if="roomState.results.length === 0" style="opacity: 0.6; text-align: center;">
-            尚無抽獎結果
-          </div>
-          <div v-for="r in roomState.results" :key="r.order" class="result-item">
-            <span class="order">{{ r.order }}</span>
-            <span class="drawer">{{ getPlayerName(r.drawerId) }}</span>
-            <span class="arrow">➡️</span>
-            <span class="gift">{{ getPlayerName(r.giftOwnerId) }}</span>
-          </div>
-        </div>
-      </div>
+      <!-- 結果列表 -->
+      <ResultsList :results="formattedResults" />
 
       <!-- 遊戲進行中控制按鈕 -->
       <div class="controls" v-if="isHost()">
@@ -234,31 +211,12 @@
     </template>
 
     <!-- 進度側邊面板 -->
-    <div class="progress-panel" v-if="roomState?.gameState === 'playing' || roomState?.gameState === 'complete'">
-      <h4>📊 抽獎進度</h4>
-      <div class="progress-content">
-        <div class="progress-bar">
-          <div class="progress-fill"
-            :style="{ width: `${(roomState.results.length / roomState.players.length) * 100}%` }">
-          </div>
-        </div>
-        <div class="progress-text">
-          {{ roomState.results.length }} / {{ roomState.players.length }}
-        </div>
-        <div class="player-status-list">
-          <div v-for="p in roomState.players" :key="p.id" class="player-status-item" :class="{
-            'is-current': roomState.drawOrder[roomState.currentIndex] === p.participantId,
-            'has-drawn': roomState.results.some(r => r.drawerId === p.participantId)
-          }">
-            <span class="status-icon">
-              {{roomState.results.some(r => r.drawerId === p.participantId) ? '✅' :
-                roomState.drawOrder[roomState.currentIndex] === p.participantId ? '🎯' : '⏳'}}
-            </span>
-            <span class="player-name">{{ p.name }}</span>
-          </div>
-        </div>
-    </div>
-    </div>
+    <ProgressPanel 
+      v-if="roomState?.gameState === 'playing' || roomState?.gameState === 'complete'"
+      :drawn-count="roomState?.results.length || 0"
+      :total-count="roomState?.players.length || 0"
+      :players="progressPlayers"
+    />
 
     <!-- 離開確認彈窗 -->
     <div class="modal-overlay" v-if="showLeaveConfirmModal" @click.self="showLeaveConfirmModal = false">
@@ -416,41 +374,14 @@
     </div>
   </div>
 
-  <!-- 進階設定區 -->
-  <div class="modal-overlay" v-if="showAdvancedSettings" @click.self="showAdvancedSettings = false">
-    <div class="modal-content">
-      <h3>🔧 進階設定</h3>
-      <div style="text-align: left; margin: 15px 0;">
-        <p style="margin-bottom: 10px;">🎯 指定配對：</p>
-        <div class="fixed-pair-item">
-          <select v-model="fixedDrawerId">
-            <option :value="undefined">選擇 A</option>
-            <option v-for="player in roomState?.players" :key="player.id" :value="player.participantId">
-              #{{ player.participantId }}
-            </option>
-          </select>
-          <span>→</span>
-          <select v-model="fixedGiftId">
-            <option :value="undefined">選擇 B</option>
-            <option v-for="player in roomState?.players" :key="player.id" :value="player.participantId">
-              #{{ player.participantId }}
-            </option>
-          </select>
-          <button class="btn btn-secondary btn-sm" @click="handleAddFixedPair">➕</button>
-        </div>
-        <div class="fixed-pairs-list" style="margin-top: 10px;">
-          <span v-for="fp in fixedPairs" :key="fp.drawerId" class="fixed-pair-tag">
-            #{{ fp.drawerId }} → #{{ fp.giftOwnerId }}
-            <span class="remove" @click="removeFixedPair(fp.drawerId)">✕</span>
-          </span>
-          <p v-if="fixedPairs.length === 0" style="opacity: 0.6; font-size: 0.9rem;">無設定</p>
-        </div>
-      </div>
-      <div class="modal-buttons">
-        <button class="btn btn-secondary" @click="showAdvancedSettings = false">關閉</button>
-      </div>
-    </div>
-  </div>
+  <!-- 進階選項密碼驗證 -->
+  <PasswordModal
+    v-model="showAdvancedModal"
+    title="進階選項驗證"
+    confirm-text="確認"
+    confirm-button-class="btn-primary"
+    @confirm="confirmAdvanced"
+  />
 
     <!-- QR Code 彈窗 -->
     <div class="modal-overlay" v-if="showQRModal" @click.self="showQRModal = false">
@@ -466,6 +397,16 @@
       </div>
     </div>
 
+    <!-- 分享結果模態框 -->
+    <SocialShareModal
+      v-model="showShareModal"
+      :results="formattedResults"
+      :seed="roomState?.seed || 0"
+      mode="online"
+      :player-name="getCurrentPlayer()?.name"
+      @toast="displayError"
+    />
+
     <!-- 錯誤提示 -->
     <Transition name="toast">
       <div v-if="showErrorToast" class="toast-error">
@@ -476,6 +417,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+
 const router = useRouter()
 const dynamicConfig = useDynamicConfig()
 const { addRecord: addHistoryRecord } = useHistory()
@@ -528,6 +471,8 @@ const allowSpectators = ref(true)
 const fixedDrawerId = ref<number | undefined>(undefined)
 const fixedGiftId = ref<number | undefined>(undefined)
 const fixedPairs = ref<{ drawerId: number, giftOwnerId: number }[]>([])
+const showAdvanced = ref(false)
+const showAdvancedModal = ref(false)
 
 // 錯誤提示
 const showErrorToast = ref(false)
@@ -557,6 +502,31 @@ const currentDrawerName = computed(() => {
   const currentId = roomState.value.drawOrder[roomState.value.currentIndex]
   const player = roomState.value.players.find(p => p.participantId === currentId)
   return player?.name || '-'
+})
+
+function getCurrentDrawerId() {
+  if (!roomState.value) return 0
+  return roomState.value.drawOrder[roomState.value.currentIndex] || 0
+}
+
+// Computed properties for components
+const formattedResults = computed(() => {
+  if (!roomState.value) return []
+  return roomState.value.results.map((r: any) => ({
+    order: r.order,
+    drawerName: getPlayerName(r.drawerId),
+    giftOwnerName: getPlayerName(r.giftOwnerId)
+  }))
+})
+
+const progressPlayers = computed(() => {
+  if (!roomState.value) return []
+  return roomState.value.players.map((p: any) => ({
+    id: p.participantId,
+    name: p.name,
+    isCurrent: roomState.value!.drawOrder[roomState.value!.currentIndex] === p.participantId,
+    hasDrawn: roomState.value!.results.some((r: any) => r.drawerId === p.participantId)
+  }))
 })
 
 // WebSocket 事件處理函數（定義在外部以便清理）
@@ -734,6 +704,52 @@ function handleAddPlayer() {
   addPlayerName.value = ''
 }
 
+// 進階設定相關函數
+function handleToggleAdvanced() {
+  const config = useDynamicConfig()
+  if (config.settings.value.passwordProtection) {
+    showAdvancedModal.value = true
+  } else {
+    showAdvanced.value = !showAdvanced.value
+  }
+}
+
+function confirmAdvanced(password: string) {
+  // 驗證密碼
+  const storedPassword = localStorage.getItem('christmas_draw_admin_pwd')
+  if (!storedPassword) {
+    alert('尚未設定管理員密碼，請先在設定中設定密碼')
+    return
+  }
+  if (password !== storedPassword) {
+    alert('密碼錯誤！')
+    return
+  }
+
+  showAdvancedModal.value = false
+  showAdvanced.value = true
+}
+
+function handleAddFixedPair(drawerId: number, giftId: number) {
+  if (drawerId === giftId) {
+    alert('A 和 B 不能相同！')
+    return
+  }
+
+  // 檢查是否已存在
+  const exists = fixedPairs.value.some(fp => fp.drawerId === drawerId)
+  if (exists) {
+    alert('此項目已存在設定')
+    return
+  }
+
+  fixedPairs.value.push({ drawerId, giftOwnerId: giftId })
+}
+
+function removeFixedPair(drawerId: number) {
+  fixedPairs.value = fixedPairs.value.filter(fp => fp.drawerId !== drawerId)
+}
+
 // 開始遊戲（強制或正常）
 function handleStartGame() {
   startGame()
@@ -848,36 +864,6 @@ function saveRoomSettings() {
   showSettingsModal.value = false
 }
 
-// 新增指定配對
-function handleAddFixedPair() {
-  if (fixedDrawerId.value === undefined || fixedGiftId.value === undefined) {
-    displayError('請選擇 A 和 B')
-    return
-  }
-  if (fixedDrawerId.value === fixedGiftId.value) {
-    displayError('A 和 B 不能相同')
-    return
-  }
-  // 檢查是否已存在
-  if (fixedPairs.value.some(fp => fp.drawerId === fixedDrawerId.value)) {
-    displayError('此抽獎者已有指定配對')
-    return
-  }
-
-  fixedPairs.value.push({
-    drawerId: fixedDrawerId.value,
-    giftOwnerId: fixedGiftId.value
-  })
-
-  fixedDrawerId.value = undefined
-  fixedGiftId.value = undefined
-}
-
-// 移除指定配對
-function removeFixedPair(drawerId: number) {
-  fixedPairs.value = fixedPairs.value.filter(fp => fp.drawerId !== drawerId)
-}
-
 // 防止重複觸發抽獎動畫
 let animationInProgress = false
 
@@ -947,116 +933,8 @@ function handleRestartGame() {
 }
 
 // 分享結果 - 打開分享選單
-async function shareResults() {
+function shareResults() {
   showShareModal.value = true
-}
-
-// 分享文字版
-async function handleShareText() {
-  if (!roomState.value) return
-
-  // 產生文字結果
-  const lines = ['🎁 交換禮物抽籤結果 🎁', '']
-  roomState.value.results.forEach(r => {
-    const drawer = getPlayerName(r.drawerId)
-    const giftOwner = getPlayerName(r.giftOwnerId)
-    lines.push(`${r.order}. ${drawer} ➡️ ${giftOwner}`)
-  })
-  lines.push('')
-  lines.push(`🎲 Seed: ${roomState.value.seed}`)
-
-  const text = lines.join('\n')
-
-  // 直接複製到剪貼簿
-  try {
-    await navigator.clipboard.writeText(text)
-    displayError('✅ 結果已複製到剪貼簿！')
-    showShareModal.value = false
-  } catch (e) {
-    displayError('❌ 複製失敗，請手動複製')
-  }
-}
-
-// 分享圖片版
-async function handleShareImage() {
-  if (!roomState.value) return
-
-  const results = roomState.value.results.map(r => ({
-    order: r.order,
-    drawerName: getPlayerName(r.drawerId),
-    giftOwnerName: getPlayerName(r.giftOwnerId)
-  }))
-
-  const currentPlayer = getCurrentPlayer()
-  const blob = await generateResultImage(results, roomState.value.seed, 'online', currentPlayer?.name)
-
-  if (blob) {
-    const success = await shareImage(
-      blob,
-      '交換禮物抽籤結果',
-      '🎁 看看我的交換禮物抽籤結果！'
-    )
-
-    if (success) {
-      showShareModal.value = false
-    } else {
-      displayError('❌ 分享失敗，請嘗試下載圖片')
-    }
-  }
-}
-
-// 下載圖片
-async function handleDownloadImage() {
-  if (!roomState.value) return
-
-  const results = roomState.value.results.map(r => ({
-    order: r.order,
-    drawerName: getPlayerName(r.drawerId),
-    giftOwnerName: getPlayerName(r.giftOwnerId)
-  }))
-
-  const currentPlayer = getCurrentPlayer()
-  const blob = await generateResultImage(results, roomState.value.seed, 'online', currentPlayer?.name)
-
-  if (blob) {
-    downloadImage(blob, `交換禮物結果_${roomState.value.seed}.png`)
-    displayError('✅ 下載完成！')
-    showShareModal.value = false
-  }
-}
-
-// 分享到社交媒體
-async function shareToSocial(platform: string) {
-  if (!roomState.value) return
-  
-  if (platform === 'copy') {
-    await copyShareLink()
-    return
-  }
-  
-  if (platform === 'instagram') {
-    // Instagram 需要通過圖片分享
-    await handleShareImage()
-    return
-  }
-
-  const text = `🎁 交換禮物抽籤結果！Seed: ${roomState.value.seed}`
-  const url = window.location.href
-  const links = getSocialShareLinks(text, url)
-
-  const socialUrl = links[platform]
-  if (socialUrl) {
-    window.open(socialUrl, '_blank', 'width=600,height=400')
-    showShareModal.value = false
-  }
-}
-
-// 複製分享連結
-async function copyShareLink() {
-  const url = window.location.href
-  await navigator.clipboard.writeText(url)
-  displayError('✅ 連結已複製！')
-  showShareModal.value = false
 }
 
 // 慶祝動畫
@@ -2320,5 +2198,45 @@ function celebrate() {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   25% { transform: translateY(-20px) rotate(-10deg); }
   75% { transform: translateY(-15px) rotate(10deg); }
+}
+
+/* 提示訊息樣式 */
+.your-turn-hint,
+.host-hint,
+.waiting-hint {
+  padding: 15px;
+  margin-top: 20px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 1rem;
+  animation: pulse 2s infinite;
+}
+
+.your-turn-hint {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.2));
+  border: 2px solid rgba(255, 215, 0, 0.5);
+}
+
+.host-hint {
+  background: linear-gradient(135deg, rgba(100, 200, 255, 0.2), rgba(70, 130, 255, 0.2));
+  border: 2px solid rgba(100, 200, 255, 0.5);
+}
+
+.waiting-hint {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0.7;
+}
+
+.your-turn-hint p,
+.host-hint p,
+.waiting-hint p {
+  margin: 0;
+  font-weight: 600;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
 }
 </style>

@@ -106,6 +106,16 @@
       </div>
 
       <div class="settings-item">
+        <label>密碼保護功能</label>
+        <p class="hint">啟用後，進階選項和重要操作需要輸入密碼</p>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="localSettings.passwordProtection" @change="handlePasswordProtectionToggle" :disabled="readonly">
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">{{ localSettings.passwordProtection ? '已啟用' : '已停用' }}</span>
+        </label>
+      </div>
+
+      <div class="settings-item" v-if="localSettings.passwordProtection">
         <label>重設管理員密碼</label>
         <p class="hint">重設用於進階選項的管理員密碼</p>
         <button class="btn btn-secondary" @click="showResetPasswordModal = true" :disabled="readonly">
@@ -269,8 +279,20 @@ let pendingAction: (() => void) | null = null
 const newAdminPassword = ref('')
 const confirmAdminPassword = ref('')
 
+// 動態設定
+const dynamicConfig = useDynamicConfig()
+const localSettings = ref({
+  passwordProtection: dynamicConfig.settings.value.passwordProtection
+})
+
+// 處理密碼保護開關
+function handlePasswordProtectionToggle() {
+  dynamicConfig.updateSetting('passwordProtection', localSettings.value.passwordProtection)
+  emit('saved')
+}
+
 // 應用資訊
-const appVersion = '0.6.0'
+const appVersion = '0.7.0'
 const buildNumber = computed(() => {
   const date = new Date()
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
@@ -692,5 +714,59 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   justify-content: center;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-switch input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider {
+  background: var(--theme-success);
+}
+
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(24px);
+}
+
+.toggle-switch input[type="checkbox"]:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-label {
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 </style>

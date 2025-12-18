@@ -21,7 +21,7 @@
     </div>
     
     <div class="settings-section">
-      <h4>🎨 主題色彩</h4>
+      <h4>🎨 主要色彩</h4>
       <div class="color-grid">
         <div class="color-item">
           <label>主色調</label>
@@ -29,10 +29,21 @@
           <span class="color-code">{{ localSettings.themePrimary }}</span>
         </div>
         <div class="color-item">
-          <label>輔助色</label>
+          <label>次要色</label>
           <input type="color" v-model="localSettings.themeSecondary" :disabled="disabled" />
           <span class="color-code">{{ localSettings.themeSecondary }}</span>
         </div>
+        <div class="color-item">
+          <label>強調色</label>
+          <input type="color" v-model="localSettings.themeAccent" :disabled="disabled" />
+          <span class="color-code">{{ localSettings.themeAccent }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="settings-section">
+      <h4>🌌 背景色彩</h4>
+      <div class="color-grid">
         <div class="color-item">
           <label>背景起始</label>
           <input type="color" v-model="localSettings.themeBgFrom" :disabled="disabled" />
@@ -42,6 +53,11 @@
           <label>背景結束</label>
           <input type="color" v-model="localSettings.themeBgTo" :disabled="disabled" />
           <span class="color-code">{{ localSettings.themeBgTo }}</span>
+        </div>
+        <div class="color-item">
+          <label>深色背景</label>
+          <input type="color" v-model="localSettings.themeBgDeep" :disabled="disabled" />
+          <span class="color-code">{{ localSettings.themeBgDeep }}</span>
         </div>
       </div>
     </div>
@@ -96,10 +112,28 @@ const localSettings = reactive({
   siteSubtitle: settings.value.siteSubtitle,
   siteIconLeft: settings.value.siteIconLeft,
   siteIconRight: settings.value.siteIconRight,
+  // 主要色彩
   themePrimary: settings.value.themePrimary,
   themeSecondary: settings.value.themeSecondary,
+  themeAccent: settings.value.themeAccent,
+  // 背景色彩
   themeBgFrom: settings.value.themeBgFrom,
   themeBgTo: settings.value.themeBgTo,
+  themeBgDeep: settings.value.themeBgDeep,
+  // 表面色彩
+  themeSurface: settings.value.themeSurface,
+  themeSurfaceLight: settings.value.themeSurfaceLight,
+  themeSurfaceHover: settings.value.themeSurfaceHover,
+  // 文字色彩
+  themeText: settings.value.themeText,
+  themeTextSecondary: settings.value.themeTextSecondary,
+  themeTextMuted: settings.value.themeTextMuted,
+  // 效果色彩
+  themeSuccess: settings.value.themeSuccess,
+  themeWarning: settings.value.themeWarning,
+  themeDanger: settings.value.themeDanger,
+  themeInfo: settings.value.themeInfo,
+  // 特效
   showSnowflakes: settings.value.showSnowflakes,
 })
 
@@ -112,8 +146,20 @@ const presets = {
     siteIconRight: '🎁',
     themePrimary: '#c41e3a',
     themeSecondary: '#228b22',
+    themeAccent: '#4CAF50',
     themeBgFrom: '#1a472a',
     themeBgTo: '#2d1f1f',
+    themeBgDeep: '#0d2818',
+    themeSurface: 'rgba(255, 255, 255, 0.08)',
+    themeSurfaceLight: 'rgba(255, 255, 255, 0.12)',
+    themeSurfaceHover: 'rgba(255, 255, 255, 0.16)',
+    themeText: '#FFFFFF',
+    themeTextSecondary: 'rgba(255, 255, 255, 0.8)',
+    themeTextMuted: 'rgba(255, 255, 255, 0.5)',
+    themeSuccess: '#228b22',
+    themeWarning: '#F59E0B',
+    themeDanger: '#c41e3a',
+    themeInfo: '#4CAF50',
     showSnowflakes: true,
   },  
   newyear: {
@@ -123,8 +169,20 @@ const presets = {
     siteIconRight: '🎆',
     themePrimary: '#d4af37',
     themeSecondary: '#c41e3a',
+    themeAccent: '#FFD700',
     themeBgFrom: '#8b0000',
     themeBgTo: '#2d0a0a',
+    themeBgDeep: '#1a0000',
+    themeSurface: 'rgba(255, 215, 0, 0.08)',
+    themeSurfaceLight: 'rgba(255, 215, 0, 0.12)',
+    themeSurfaceHover: 'rgba(255, 215, 0, 0.16)',
+    themeText: '#FFFFFF',
+    themeTextSecondary: 'rgba(255, 255, 255, 0.8)',
+    themeTextMuted: 'rgba(255, 255, 255, 0.5)',
+    themeSuccess: '#FFD700',
+    themeWarning: '#F59E0B',
+    themeDanger: '#c41e3a',
+    themeInfo: '#d4af37',
     showSnowflakes: false,
   },
   party: {
@@ -134,8 +192,20 @@ const presets = {
     siteIconRight: '🎉',
     themePrimary: '#9c27b0',
     themeSecondary: '#673ab7',
+    themeAccent: '#E91E63',
     themeBgFrom: '#1a1a2e',
     themeBgTo: '#16213e',
+    themeBgDeep: '#0f1419',
+    themeSurface: 'rgba(233, 30, 99, 0.08)',
+    themeSurfaceLight: 'rgba(233, 30, 99, 0.12)',
+    themeSurfaceHover: 'rgba(233, 30, 99, 0.16)',
+    themeText: '#FFFFFF',
+    themeTextSecondary: 'rgba(255, 255, 255, 0.8)',
+    themeTextMuted: 'rgba(255, 255, 255, 0.5)',
+    themeSuccess: '#673ab7',
+    themeWarning: '#F59E0B',
+    themeDanger: '#9c27b0',
+    themeInfo: '#E91E63',
     showSnowflakes: false,
   },
 }

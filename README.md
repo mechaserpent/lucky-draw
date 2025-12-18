@@ -111,19 +111,65 @@ cp .env.example .env
 
 ### 主題色彩
 
+#### 主要色彩
 | 變數 | 預設值 | 說明 |
 |------|--------|------|
-| `NUXT_PUBLIC_THEME_PRIMARY` | #c41e3a | 主色調（按鈕） |
-| `NUXT_PUBLIC_THEME_SECONDARY` | #228b22 | 次要色調 |
-| `NUXT_PUBLIC_THEME_BG_FROM` | #1a472a | 背景漸層起始 |
-| `NUXT_PUBLIC_THEME_BG_TO` | #2d1f1f | 背景漸層結束 |
+| `NUXT_PUBLIC_THEME_PRIMARY` | #BF092F | 主色調（主要按鈕、重要元素） |
+| `NUXT_PUBLIC_THEME_SECONDARY` | #3B9797 | 次要色調（次要按鈕、輔助元素） |
+| `NUXT_PUBLIC_THEME_ACCENT` | #62B6B7 | 強調色（高亮、懸停效果） |
+
+#### 背景色彩
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_THEME_BG_FROM` | #102A43 | 背景漸層起始（深藍色） |
+| `NUXT_PUBLIC_THEME_BG_TO` | #16476A | 背景漸層結束（中藍色） |
+| `NUXT_PUBLIC_THEME_BG_DEEP` | #132440 | 深色背景（模態框、陰影） |
+
+#### 表面色彩（半透明層次）
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_THEME_SURFACE` | rgba(255,255,255,0.08) | 卡片基礎表面 |
+| `NUXT_PUBLIC_THEME_SURFACE_LIGHT` | rgba(255,255,255,0.12) | 較亮表面 |
+| `NUXT_PUBLIC_THEME_SURFACE_HOVER` | rgba(255,255,255,0.16) | 懸停效果 |
+
+#### 文字色彩
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_THEME_TEXT` | #FFFFFF | 主要文字（純白） |
+| `NUXT_PUBLIC_THEME_TEXT_SECONDARY` | rgba(255,255,255,0.8) | 次要文字 |
+| `NUXT_PUBLIC_THEME_TEXT_MUTED` | rgba(255,255,255,0.5) | 弱化文字 |
+
+#### 狀態色彩
+| 變數 | 預設值 | 說明 |
+|------|--------|------|
+| `NUXT_PUBLIC_THEME_SUCCESS` | #3B9797 | 成功狀態（青綠色） |
+| `NUXT_PUBLIC_THEME_WARNING` | #F59E0B | 警告狀態（琥珀色） |
+| `NUXT_PUBLIC_THEME_DANGER` | #BF092F | 危險/錯誤狀態（深紅色） |
+| `NUXT_PUBLIC_THEME_INFO` | #62B6B7 | 資訊狀態（亮青色） |
 
 ### 功能開關
 
 | 變數 | 預設值 | 說明 |
 |------|--------|------|
 | `NUXT_PUBLIC_FEATURES_SNOWFLAKES` | true | 雪花動畫 |
-| `NUXT_PUBLIC_FEATURES_PASSWORD_PROTECTION` | true | 密碼保護 |
+| `NUXT_PUBLIC_FEATURES_PASSWORD_PROTECTION` | false | 密碼保護（進階選項） |
+
+### 🎨 設計系統
+
+本專案採用完整的設計系統，支援動態主題切換。詳細資訊請參閱 [DESIGN_SYSTEM.md](./docs/DESIGN_SYSTEM.md)
+
+**特色：**
+- 16+ 個主題變數，完整控制視覺風格
+- 毛玻璃效果（Glassmorphism）
+- 動態光暈與背景動畫
+- 按鈕光掃效果
+- 自適應陰影系統
+- 響應式設計支援
+
+**內建主題預設：**
+- 🎄 聖誕主題（紅綠配色）
+- 🧧 新年主題（金紅配色）
+- 🎉 派對主題（紫藍配色）
 
 ### 國際化設定
 
