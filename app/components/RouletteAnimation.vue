@@ -187,6 +187,21 @@ function getItemWidth(): number {
   return 100; // 桌面版
 }
 
+// 從實際 DOM 元素獲取精確寬度
+function getActualItemWidth(): number {
+  if (!trackRef.value) {
+    return getItemWidth(); // fallback
+  }
+  const firstItem = trackRef.value.querySelector(
+    ".roulette-item",
+  ) as HTMLElement;
+  if (firstItem) {
+    const rect = firstItem.getBoundingClientRect();
+    return rect.width;
+  }
+  return getItemWidth(); // fallback
+}
+
 function startDraw() {
   if (!props.canDraw) return;
 
@@ -218,9 +233,14 @@ function performDrawAnimation() {
   // 準備滾動項目（不會透露獲勝者名字）
   prepareRouletteItems();
 
-  // 動態獲取項目寬度
-  const ITEM_WIDTH = getItemWidth();
+  // 等待 DOM 更新後獲取實際寬度
+  nextTick(() => {
+    const ITEM_WIDTH = getActualItemWidth();
+    performDrawAnimationWithWidth(ITEM_WIDTH);
+  });
+}
 
+function performDrawAnimationWithWidth(ITEM_WIDTH: number) {
   // 計算位置相關數值
   const winnerIndex = extendedItems.value.findIndex((item) => item.isWinner);
   const containerWidth = trackRef.value?.parentElement?.offsetWidth || 400;

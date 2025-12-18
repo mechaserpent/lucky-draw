@@ -486,11 +486,18 @@ export async function handleDisconnect(
     (p) => p.id !== playerId && p.isConnected,
   );
 
-  // 如果沒有任何連線的人，關閉房間
+  // 如果沒有任何連線的人，標記為待清理（讓定期清理任務處理）
+  // 不立即刪除，給予玩家重連的機會
   if (connectedPlayers.length === 0 && connectedSpectators.length === 0) {
-    console.log(`[Room] No connected players in room ${roomId}, closing room`);
-    await deleteRoom(roomId);
-    return null;
+    console.log(
+      `[Room] No connected players in room ${roomId}, marking for cleanup (not deleting immediately)`,
+    );
+    // 更新 lastActivityAt，讓清理任務根據時間決定是否刪除
+    await db
+      .update(schema.rooms)
+      .set({ lastActivityAt: new Date() })
+      .where(eq(schema.rooms.id, roomId));
+    return await loadRoomFromDb(roomId);
   }
 
   // 如果是主機斷線，將主機權限移交給下一位玩家
@@ -864,6 +871,16 @@ export async function performDraw(
 export async function nextDrawer(roomId: string): Promise<Room | null> {
   const room = await loadRoomFromDb(roomId);
   if (!room) return null;
+
+  // 驗證當前抽獎者是否已經抽過
+  const currentDrawerId = room.drawOrder[room.currentIndex];
+  const hasDrawn = room.results.some((r) => r.drawerId === currentDrawerId);
+  if (!hasDrawn) {
+    console.log(
+      `[NextDrawer] Current drawer ${currentDrawerId} has not drawn yet, ignoring request`,
+    );
+    return room; // 返回當前狀態，不做任何改變
+  }
 
   let newState = room.gameState;
   let newIndex = room.currentIndex;

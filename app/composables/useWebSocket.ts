@@ -339,6 +339,12 @@ export function useWebSocket() {
 
       case "game_complete":
         roomState.value = msg.payload.room;
+        // 遊戲完成後清除重連資訊，避免返回首頁時觸發自動重連
+        clearReconnectInfo();
+        const { clearReconnectInfo: clearDeviceReconnectInfoComplete } =
+          useDeviceId();
+        clearDeviceReconnectInfoComplete();
+        console.log("[Game Complete] Reconnect info cleared");
         emit("gameComplete", roomState.value);
         break;
 

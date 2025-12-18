@@ -1035,14 +1035,29 @@ function handleHostDraw() {
   hostPerformDraw(currentId);
 }
 
-// 下一位
+// 下一位（帶防抖機制）
+const isProcessingNext = ref(false);
+
 function handleNextDrawer() {
+  // 防止重複點擊
+  if (isProcessingNext.value) {
+    console.log("[NextDrawer] Already processing, ignoring duplicate click");
+    return;
+  }
+
   // 清除自動進入下一位的計時器，避免重複觸發
   if (autoProgressTimeout.value) {
     clearTimeout(autoProgressTimeout.value);
     autoProgressTimeout.value = null;
   }
+
+  isProcessingNext.value = true;
   nextDrawer();
+
+  // 1秒後重置狀態（允許再次點擊）
+  setTimeout(() => {
+    isProcessingNext.value = false;
+  }, 1000);
 }
 
 // 打開設定彈窗

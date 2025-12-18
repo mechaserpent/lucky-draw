@@ -465,7 +465,9 @@ onMounted(async () => {
     const code = roomCode.toUpperCase();
     isCheckingRoom.value = true;
 
-    // 設置跳過自動重連，因為使用 URL 加入時應該直接加入而不是重連
+    // 先清除舊的重連資訊，然後設置跳過標誌
+    const { clearReconnectInfo: clearDeviceReconnect } = useDeviceId();
+    clearDeviceReconnect();
     setSkipAutoReconnect(true);
 
     try {
