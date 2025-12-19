@@ -140,6 +140,7 @@
           :can-draw="!hasDrawnCurrent"
           :is-last-draw="state.currentIndex >= state.participants.length - 1"
           :actual-result="lastDrawResult"
+          :can-show-next-button="true"
           @draw="handlePerformDraw"
           @next="handleNextDraw"
           @complete="handleComplete"
@@ -632,10 +633,12 @@ function handlePerformDraw() {
 
 // 下一位抽獎 - 由 RouletteAnimation 組件調用
 function handleNextDraw() {
-  if (nextDraw()) {
-    hasDrawnCurrent.value = false;
-    lastDrawResult.value = null;
-  }
+  // 重置狀態，準備進入下一輪
+  hasDrawnCurrent.value = false;
+  lastDrawResult.value = null;
+
+  // 切換到下一位
+  nextDraw();
 }
 
 // 分享結果 - 打開分享選單

@@ -86,12 +86,6 @@ export function useGameState() {
     const drawerId = state.value.drawOrder[state.value.currentIndex];
     return state.value.participants.find((p) => p.id === drawerId);
   });
-  const hasFixedPairs = computed(() => state.value.fixedPairs.length > 0);
-  const currentDrawer = computed(() => {
-    if (state.value.currentIndex >= state.value.drawOrder.length) return null;
-    const drawerId = state.value.drawOrder[state.value.currentIndex];
-    return state.value.participants.find((p) => p.id === drawerId);
-  });
 
   // 載入狀態
   function loadState() {

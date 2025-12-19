@@ -12,9 +12,9 @@
               isCurrentPlayer ? $t("game.yourTurn") : $t("game.nextDrawerLabel")
             }}
           </p>
-          <h2 class="drawer-name">
+          <h4 class="drawer-name">
             {{ currentDrawer?.name || $t("game.preparingDraw") }}
-          </h2>
+          </h4>
         </div>
       </div>
 
@@ -90,7 +90,7 @@
           <div class="result-card">
             <div class="drawer-info">
               <div class="avatar-large">👤</div>
-              <h2>{{ displayDrawerName }}</h2>
+              <h4>{{ displayDrawerName }}</h4>
               <p class="role-label">{{ $t("game.drawer") }}</p>
             </div>
 
@@ -98,13 +98,19 @@
 
             <div class="winner-info">
               <div class="avatar-large glow">🎁</div>
-              <h2 class="winner-name">{{ displayWinnerName }}</h2>
+              <h4 class="winner-name">{{ displayWinnerName }}</h4>
               <p class="role-label">{{ $t("game.giftOwner") }}</p>
             </div>
           </div>
 
+          <!-- 等待進入下一位提示（Solo 模式短暫顯示） -->
+          <div v-if="showWaitingNext" class="waiting-next-hint">
+            <p>⏳ {{ $t("game.waitingForNext") }}</p>
+          </div>
+
+          <!-- 下一位按鈕 -->
           <button
-            v-if="canShowNextButton"
+            v-else-if="canShowNextButton"
             class="btn btn-primary btn-lg next-button"
             @click="handleNext"
           >
@@ -114,8 +120,11 @@
             }}</span>
           </button>
 
-          <!-- 非房主/非當前抽獎者的等待提示 -->
-          <div v-else class="waiting-next-hint">
+          <!-- 非房主/非當前抽獎者的等待提示（Online 模式） -->
+          <div
+            v-else-if="!canShowNextButton && !showWaitingNext"
+            class="waiting-next-hint"
+          >
             <p>⏳ {{ $t("game.waitingForNext") }}</p>
           </div>
         </div>
@@ -153,6 +162,7 @@ const props = defineProps<{
   actualResult?: ActualResult | null;
   canShowNextButton?: boolean; // 是否顯示下一位按鈕（房主或當前抽獎者）
   isCurrentPlayer?: boolean; // 當前用戶是否是這一輪的抽獎者
+  showWaitingNext?: boolean; // 是否顯示等待進入下一位提示
 }>();
 
 const emit = defineEmits<{
@@ -863,7 +873,7 @@ defineExpose({
   margin-bottom: 8px;
 }
 
-.result-card h2 {
+.result-card h4 {
   font-size: 1.8rem;
   font-weight: 700;
   color: var(--theme-text);
@@ -950,37 +960,308 @@ defineExpose({
   }
 }
 
-/* 響應式 */
+/* 響應式設計 - 多尺寸支持 */
+
+/* 手機小屏 (最大 768px) */
 @media (max-width: 768px) {
+  .roulette-container {
+    padding: 10px;
+    min-height: 350px;
+  }
+
+  .roulette-wrapper {
+    height: 120px;
+  }
+
+  .roulette-track-container {
+    padding: 12px 0;
+  }
+
+  .roulette-item {
+    flex: 0 0 70px;
+    min-width: 70px;
+  }
+
+  .item-avatar {
+    font-size: 1.8rem;
+  }
+
+  .item-name {
+    font-size: 0.7rem;
+  }
+
+  .roulette-pointer {
+    width: 80px;
+  }
+
+  .pointer-arrow {
+    font-size: 1.3rem;
+  }
+
+  /* Result Screen 修復 - 大幅簡化 */
+  .result-screen {
+    padding: 8px;
+    overflow-y: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .result-content {
+    gap: 10px;
+    padding: 3px;
+    max-width: 95%;
+  }
+
+  .result-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    margin-bottom: 0;
+  }
+
   .result-card {
     flex-direction: column;
-    gap: 20px;
-    padding: 30px 20px;
+    gap: 8px;
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+
+  .drawer-info,
+  .winner-info {
+    flex: none;
   }
 
   .arrow-large {
     transform: rotate(90deg);
-    font-size: 2.5rem;
-  }
-
-  .drawer-name {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
+    margin: 2px 0;
   }
 
   .avatar-large {
-    font-size: 4rem;
+    font-size: 2rem;
+    margin-bottom: 4px;
   }
 
-  .result-badge {
-    font-size: 1.2rem;
+  .result-card h4 {
+    font-size: 0.9rem;
+    margin-bottom: 2px;
+  }
+
+  .winner-name {
+    font-size: 1rem;
+  }
+
+  .role-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+  }
+
+  .before-draw {
+    padding: 15px 10px;
+    gap: 20px;
+  }
+
+  .next-drawer-info {
+    padding: 18px 20px;
+    gap: 15px;
+  }
+
+  .drawer-avatar {
+    font-size: 3rem;
+  }
+
+  .draw-button {
+    font-size: 1rem;
+    padding: 14px 24px;
+  }
+
+  .next-button {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    max-width: 92%;
+    margin-top: 5px;
+  }
+
+  .next-button .btn-icon {
+    font-size: 0.9rem;
+  }
+
+  .next-button .btn-text {
+    font-size: 0.85rem;
+  }
+
+  .waiting-next-hint {
+    padding: 8px;
+    margin-top: 5px;
+  }
+
+  .waiting-next-hint p {
+    font-size: 0.85rem;
+  }
+
+  .confetti {
+    width: 5px;
+    height: 5px;
+  }
+
+  /* 減少彩帶數量以提升性能和避免遮擋 */
+  .confetti:nth-child(n + 16) {
+    display: none;
+  }
+}
+
+/* 平板豎屏 (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .roulette-container {
+    padding: 20px;
+  }
+
+  .roulette-wrapper {
+    height: 150px;
   }
 
   .roulette-item {
-    flex: 0 0 80px;
+    flex: 0 0 90px;
+    min-width: 90px;
   }
 
   .item-avatar {
+    font-size: 2.2rem;
+  }
+
+  .result-card {
+    padding: 35px 25px;
+  }
+
+  .avatar-large {
+    font-size: 4.5rem;
+  }
+
+  .result-badge {
+    font-size: 1.3rem;
+  }
+
+  .winner-name {
+    font-size: 1.8rem;
+  }
+}
+
+/* 平板橫屏和小筆電 (1025px - 1280px) */
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .roulette-wrapper {
+    height: 160px;
+  }
+
+  .result-card {
+    padding: 40px 30px;
+    max-width: 650px;
+  }
+
+  .avatar-large {
+    font-size: 4.8rem;
+  }
+}
+
+/* 標準桌面 (1281px - 1440px) */
+@media (min-width: 1281px) and (max-width: 1440px) {
+  .result-card {
+    max-width: 700px;
+  }
+}
+
+/* 大屏幕桌面 (1441px - 1600px) */
+@media (min-width: 1441px) and (max-width: 1600px) {
+  .roulette-wrapper {
+    height: 180px;
+  }
+
+  .result-card {
+    max-width: 750px;
+    padding: 45px;
+  }
+
+  .avatar-large {
+    font-size: 5.5rem;
+  }
+
+  .result-badge {
+    font-size: 1.7rem;
+  }
+
+  .winner-name {
+    font-size: 2.2rem;
+  }
+}
+
+/* 超大屏幕 (1601px - 1920px) */
+@media (min-width: 1601px) and (max-width: 1920px) {
+  .roulette-wrapper {
+    height: 200px;
+  }
+
+  .roulette-item {
+    flex: 0 0 110px;
+  }
+
+  .result-card {
+    max-width: 800px;
+    padding: 50px;
+  }
+
+  .avatar-large {
+    font-size: 6rem;
+  }
+
+  .result-badge {
+    font-size: 1.8rem;
+  }
+
+  .winner-name {
+    font-size: 2.4rem;
+  }
+
+  .arrow-large {
+    font-size: 3.5rem;
+  }
+}
+
+/* 4K 和超寬屏 (1921px+) */
+@media (min-width: 1921px) {
+  .roulette-wrapper {
+    height: 220px;
+  }
+
+  .roulette-item {
+    flex: 0 0 120px;
+  }
+
+  .item-avatar {
+    font-size: 3rem;
+  }
+
+  .result-card {
+    max-width: 900px;
+    padding: 60px;
+  }
+
+  .avatar-large {
+    font-size: 6.5rem;
+  }
+
+  .result-badge {
     font-size: 2rem;
+  }
+
+  .winner-name {
+    font-size: 2.6rem;
+  }
+
+  .result-card h4 {
+    font-size: 2rem;
+  }
+
+  .arrow-large {
+    font-size: 4rem;
   }
 }
 

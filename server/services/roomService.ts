@@ -610,11 +610,14 @@ export async function handleReconnect(
     ),
   });
 
-  if (!playerData) return null;
+  if (!playerData) {
+    console.log(`[Reconnect] Player not found with token`);
+    return null;
+  }
 
   const oldPlayerId = playerData.playerId;
 
-  // 更新玩家連線狀態和新的 playerId
+  // 更新玩家連線狀態和新的 playerId，保留原始角色和狀態
   await db
     .update(schema.players)
     .set({
@@ -623,6 +626,10 @@ export async function handleReconnect(
       disconnectedAt: null,
     })
     .where(eq(schema.players.id, playerData.id));
+
+  console.log(
+    `[Reconnect] Player reconnected: ${oldPlayerId} -> ${newPlayerId}, role: ${playerData.role}, isCreator: ${playerData.isCreator}, isHost: ${playerData.isHost}`,
+  );
 
   // 如果重連的是主持人，更新房間的 hostId
   if (playerData.isHost) {
@@ -893,6 +900,18 @@ export async function startGame(
     })
     .where(eq(schema.rooms.id, roomId));
 
+  // SSOT: 狀態轉換日誌
+  console.log("[SSOT] State Transition:", {
+    roomId,
+    action: "START_GAME",
+    from: { gameState: "waiting" },
+    to: { gameState: "playing", currentIndex: 0 },
+    seed: gameSeed,
+    drawOrderLength: drawOrder.length,
+    firstDrawer: firstDrawerId,
+    timestamp: new Date().toISOString(),
+  });
+
   return loadRoomFromDb(roomId);
 }
 
@@ -944,6 +963,17 @@ export async function performDraw(
     .set({ lastActivityAt: new Date() })
     .where(eq(schema.rooms.id, roomId));
 
+  // SSOT: 狀態轉換日誌
+  console.log("[SSOT] State Transition:", {
+    roomId,
+    action: "PERFORM_DRAW",
+    currentIndex: room.currentIndex,
+    drawerId: result.drawerId,
+    giftOwnerId: result.giftOwnerId,
+    resultCount: room.results.length + 1,
+    timestamp: new Date().toISOString(),
+  });
+
   const updatedRoom = await loadRoomFromDb(roomId);
   return updatedRoom ? { room: updatedRoom, result } : null;
 }
@@ -965,14 +995,35 @@ export async function nextDrawer(roomId: string): Promise<Room | null> {
   let newState = room.gameState;
   let newIndex = room.currentIndex;
 
-  // 檢查是否所有人都已抽完（用 results.length 判斷）
-  if (room.results.length >= room.players.length) {
+  // 檢查是否所有人都已抽完
+  // 使用 drawOrder 長度作為總人數，確保每個人都抽過
+  const totalPlayers = room.drawOrder.length;
+  const drawnCount = room.results.length;
+
+  console.log(
+    `[NextDrawer] Progress: ${drawnCount}/${totalPlayers} drawn, currentIndex: ${room.currentIndex}`,
+  );
+
+  if (drawnCount >= totalPlayers) {
+    // 所有人都已抽完
     newState = "complete";
-  } else if (room.currentIndex >= room.drawOrder.length - 1) {
-    // 如果到達順序末端但還沒抽完，也標記為完成
-    newState = "complete";
+    console.log(`[NextDrawer] Game complete, all players have drawn`);
+  } else if (room.currentIndex >= totalPlayers - 1) {
+    // 已到最後一位，檢查是否真的完成
+    if (drawnCount >= totalPlayers) {
+      newState = "complete";
+      console.log(`[NextDrawer] Game complete at last drawer`);
+    } else {
+      console.log(
+        `[NextDrawer] Warning: At last drawer but not all drawn (${drawnCount}/${totalPlayers})`,
+      );
+      // 保持在最後一位，等待抽獎完成
+      newIndex = room.currentIndex;
+    }
   } else {
+    // 進入下一位
     newIndex = room.currentIndex + 1;
+    console.log(`[NextDrawer] Moving to next drawer: index ${newIndex}`);
   }
 
   await db
@@ -984,6 +1035,18 @@ export async function nextDrawer(roomId: string): Promise<Room | null> {
       lastActivityAt: new Date(),
     })
     .where(eq(schema.rooms.id, roomId));
+
+  // SSOT: 狀態轉換日誌
+  console.log("[SSOT] State Transition:", {
+    roomId,
+    action: "NEXT_DRAWER",
+    from: { gameState: room.gameState, currentIndex: room.currentIndex },
+    to: { gameState: newState, currentIndex: newIndex },
+    drawnCount,
+    totalPlayers,
+    isComplete: newState === "complete",
+    timestamp: new Date().toISOString(),
+  });
 
   return loadRoomFromDb(roomId);
 }

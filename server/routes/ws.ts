@@ -296,6 +296,139 @@ export default defineWebSocketHandler({
           break;
         }
 
+        case "sync_state": {
+          // 客戶端請求同步最新狀態
+          if (!peerObj.roomId) {
+            sendError(peer, "未加入房間");
+            return;
+          }
+
+          const room = await roomService.getRoom(peerObj.roomId);
+          if (!room) {
+            sendError(peer, "房間不存在");
+            return;
+          }
+
+          console.log(
+            `[Sync] Client ${odId} requesting state sync for room ${peerObj.roomId}`,
+          );
+
+          // 回傳最新狀態
+          peer.send(
+            JSON.stringify({
+              type: "state_synced",
+              payload: {
+                room: toRoomState(room),
+                timestamp: Date.now(),
+              },
+            }),
+          );
+          break;
+        }
+
+        case "heartbeat": {
+          // 心跳檢查
+          peer.send(
+            JSON.stringify({
+              type: "heartbeat_ack",
+              payload: { timestamp: Date.now() },
+            }),
+          );
+          break;
+        }
+
+        case "preflight_test": {
+          // Pre-flight 連線測試
+          const testId = msg.payload?.testId || "unknown";
+          console.log(
+            `[Preflight] Received test from ${odId}, testId: ${testId}`,
+          );
+
+          peer.send(
+            JSON.stringify({
+              type: "preflight_response",
+              payload: {
+                testId,
+                timestamp: Date.now(),
+                serverId: process.pid || "unknown",
+                odId,
+              },
+            }),
+          );
+
+          // 如果在房間中，廣播給其他玩家（用於驗證通信）
+          if (peerObj.roomId) {
+            broadcastToRoom(
+              peerObj.roomId,
+              {
+                type: "preflight_broadcast",
+                payload: {
+                  testId,
+                  fromOdId: odId,
+                  timestamp: Date.now(),
+                },
+              },
+              odId,
+            );
+          }
+          break;
+        }
+
+        case "validate_state": {
+          // 驗證客戶端狀態與伺服器是否一致
+          if (!peerObj.roomId) {
+            sendError(peer, "未加入房間");
+            return;
+          }
+
+          const room = await roomService.getRoom(peerObj.roomId);
+          if (!room) {
+            sendError(peer, "房間不存在");
+            return;
+          }
+
+          const clientState = msg.payload?.state;
+          console.log(`[Validate] Client ${odId} state validation request`, {
+            clientGameState: clientState?.gameState,
+            serverGameState: room.gameState,
+            clientCurrentIndex: clientState?.currentIndex,
+            serverCurrentIndex: room.currentIndex,
+            clientResults: clientState?.results?.length,
+            serverResults: room.results.length,
+          });
+
+          // 比對關鍵欄位
+          const validation = {
+            gameState: clientState?.gameState === room.gameState,
+            currentIndex: clientState?.currentIndex === room.currentIndex,
+            resultsCount: clientState?.results?.length === room.results.length,
+            playersCount: clientState?.players?.length === room.players.length,
+          };
+
+          const isValid = Object.values(validation).every((v) => v);
+
+          if (!isValid) {
+            console.warn(
+              `[Validate] State mismatch detected for ${odId}`,
+              validation,
+            );
+          }
+
+          // 回傳驗證結果和正確狀態
+          peer.send(
+            JSON.stringify({
+              type: "state_validated",
+              payload: {
+                isValid,
+                validation,
+                correctState: toRoomState(room),
+                timestamp: Date.now(),
+              },
+            }),
+          );
+          break;
+        }
+
         case "leave_room": {
           if (!peerObj.roomId) return;
 
@@ -576,13 +709,19 @@ export default defineWebSocketHandler({
             player.participantId,
           );
           if (result) {
-            broadcastToRoom(result.room.id, {
-              type: "draw_performed",
-              payload: {
-                room: toRoomState(result.room),
-                result: result.result,
+            // 立即廣播抽獎結果，確保動畫同步
+            broadcastToRoom(
+              result.room.id,
+              {
+                type: "draw_performed",
+                payload: {
+                  room: toRoomState(result.room),
+                  result: result.result,
+                },
               },
-            });
+              undefined,
+              true,
+            );
             peer.send(
               JSON.stringify({
                 type: "draw_performed",
@@ -610,13 +749,19 @@ export default defineWebSocketHandler({
             msg.payload.participantId,
           );
           if (result) {
-            broadcastToRoom(result.room.id, {
-              type: "draw_performed",
-              payload: {
-                room: toRoomState(result.room),
-                result: result.result,
+            // 立即廣播抽獎結果，確保動畫同步
+            broadcastToRoom(
+              result.room.id,
+              {
+                type: "draw_performed",
+                payload: {
+                  room: toRoomState(result.room),
+                  result: result.result,
+                },
               },
-            });
+              undefined,
+              true,
+            );
             peer.send(
               JSON.stringify({
                 type: "draw_performed",
@@ -645,10 +790,16 @@ export default defineWebSocketHandler({
               updatedRoom.gameState === "complete"
                 ? "game_complete"
                 : "next_drawer";
-            broadcastToRoom(updatedRoom.id, {
-              type: msgType,
-              payload: { room: toRoomState(updatedRoom) },
-            });
+            // 立即廣播狀態變化
+            broadcastToRoom(
+              updatedRoom.id,
+              {
+                type: msgType,
+                payload: { room: toRoomState(updatedRoom) },
+              },
+              undefined,
+              true,
+            );
             peer.send(
               JSON.stringify({
                 type: msgType,
@@ -668,12 +819,18 @@ export default defineWebSocketHandler({
             return;
           }
 
-          const restartedRoom = await roomService.restartGame(peerObj.roomId);
-          if (restartedRoom) {
-            broadcastToRoom(restartedRoom.id, {
-              type: "game_restarted",
-              payload: { room: toRoomState(restartedRoom) },
-            });
+          const startedRoom = await roomService.startGame(peerObj.roomId);
+          if (startedRoom) {
+            // 立即廣播遊戲開始
+            broadcastToRoom(
+              startedRoom.id,
+              {
+                type: "game_started",
+                payload: { room: toRoomState(startedRoom) },
+              },
+              undefined,
+              true,
+            );
             peer.send(
               JSON.stringify({
                 type: "game_restarted",

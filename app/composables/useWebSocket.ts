@@ -395,6 +395,61 @@ export function useWebSocket() {
         emit("playerConvertedToSpectator", msg.payload.odId);
         break;
 
+      case "state_synced":
+        // 伺服器回傳最新狀態
+        console.log("[Sync] State synced from server", {
+          timestamp: msg.payload.timestamp,
+          gameState: msg.payload.room?.gameState,
+          currentIndex: msg.payload.room?.currentIndex,
+          results: msg.payload.room?.results?.length,
+        });
+        roomState.value = msg.payload.room;
+        emit("stateSynced", msg.payload.room);
+        break;
+
+      case "heartbeat_ack":
+        // 心跳回應
+        console.log(
+          "[Heartbeat] Server responded at",
+          new Date(msg.payload.timestamp).toLocaleTimeString(),
+        );
+        break;
+
+      case "preflight_response":
+        // Pre-flight 測試回應
+        console.log("[Preflight] Server responded", {
+          testId: msg.payload.testId,
+          latency: Date.now() - (msg.payload.timestamp || 0),
+          serverId: msg.payload.serverId,
+        });
+        emit("preflightResponse", msg.payload);
+        break;
+
+      case "preflight_broadcast":
+        // 其他玩家的 preflight 測試廣播
+        console.log("[Preflight] Broadcast from", msg.payload.fromOdId);
+        emit("preflightBroadcast", msg.payload);
+        break;
+
+      case "state_validated":
+        // 狀態驗證結果
+        console.log("[Validate] State validation result", {
+          isValid: msg.payload.isValid,
+          validation: msg.payload.validation,
+        });
+
+        if (!msg.payload.isValid) {
+          console.warn(
+            "[Validate] State mismatch detected, correcting...",
+            msg.payload.validation,
+          );
+          // 自動更正為伺服器狀態
+          roomState.value = msg.payload.correctState;
+        }
+
+        emit("stateValidated", msg.payload);
+        break;
+
       case "error":
         error.value = msg.payload.message;
         emit("error", msg.payload.message);
@@ -512,6 +567,54 @@ export function useWebSocket() {
     });
   }
 
+  // ==================== 狀態同步 ====================
+
+  /**
+   * 請求伺服器同步最新狀態
+   */
+  function syncState() {
+    send({ type: "sync_state" });
+  }
+
+  /**
+   * 發送心跳包
+   */
+  function sendHeartbeat() {
+    send({ type: "heartbeat" });
+  }
+
+  /**
+   * Pre-flight 連線測試
+   */
+  function preflightTest(testId: string) {
+    send({
+      type: "preflight_test",
+      payload: { testId },
+    });
+  }
+
+  /**
+   * 驗證本地狀態與伺服器是否一致
+   */
+  function validateState() {
+    if (!roomState.value) {
+      console.warn("[Validate] No room state to validate");
+      return;
+    }
+
+    send({
+      type: "validate_state",
+      payload: {
+        state: {
+          gameState: roomState.value.gameState,
+          currentIndex: roomState.value.currentIndex,
+          results: roomState.value.results,
+          players: roomState.value.players,
+        },
+      },
+    });
+  }
+
   function getCurrentPlayer(): RoomPlayer | null {
     if (!roomState.value || !playerId.value) return null;
     return (
@@ -597,6 +700,12 @@ export function useWebSocket() {
     nextDrawer,
     restartGame,
     hostAddPlayer,
+
+    // 狀態同步
+    syncState,
+    sendHeartbeat,
+    preflightTest,
+    validateState,
 
     // 工具函數
     getCurrentPlayer,
