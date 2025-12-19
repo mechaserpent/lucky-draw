@@ -17,6 +17,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "db:migrate": "tsx server/database/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio --port 4983",
     "db:generate": "drizzle-kit generate",

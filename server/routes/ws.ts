@@ -714,11 +714,15 @@ export default defineWebSocketHandler({
             player.participantId,
           );
           if (result) {
-            console.log("[WS] Draw performed:", {
+            // 🆕 SSOT: 記錄結果揭曉狀態
+            const lastResult =
+              result.room.results[result.room.results.length - 1];
+            console.log("[WS] Draw performed (SSOT):", {
               roomId: result.room.id,
               drawer: result.result.drawerId,
               giftOwner: result.result.giftOwnerId,
               resultsCount: result.room.results.length,
+              lastResultIsRevealed: lastResult?.isRevealed ?? false,
             });
 
             // 廣播給所有人（包括發送者），使用立即廣播
@@ -782,12 +786,16 @@ export default defineWebSocketHandler({
                 ? "game_complete"
                 : "next_drawer";
 
-            console.log("[WS] Next drawer:", {
+            // 🆕 SSOT: 記錄所有結果的揭曉狀態
+            console.log("[WS] Next drawer (SSOT):", {
               roomId: updatedRoom.id,
               msgType,
               gameState: updatedRoom.gameState,
               currentIndex: updatedRoom.currentIndex,
               resultsCount: updatedRoom.results.length,
+              revealedCount: updatedRoom.results.filter(
+                (r: any) => r.isRevealed,
+              ).length,
             });
 
             // 廣播給所有人（包括發送者），使用立即廣播

@@ -949,12 +949,13 @@ export async function performDraw(
     giftOwnerId,
   };
 
-  // 儲存結果
+  // 儲存結果（預設 isRevealed=false，等待客戶端動畫完成後揭曉）
   await db.insert(schema.drawResults).values({
     roomId,
     order: result.order,
     drawerId: result.drawerId,
     giftOwnerId: result.giftOwnerId,
+    isRevealed: false, // 🆕 新抽獎預設未揭曉
     performedAt: new Date(),
   });
 

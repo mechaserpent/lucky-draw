@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import * as schema from "./schema";
 import { join } from "path";
+import { runMigrations } from "./migrate";
 
 // 資料庫文件路徑
 const DB_PATH =
@@ -178,6 +179,7 @@ export function initDatabase() {
       "order" INTEGER NOT NULL,
       drawer_id INTEGER NOT NULL,
       gift_owner_id INTEGER NOT NULL,
+      is_revealed INTEGER NOT NULL DEFAULT 0,
       performed_at INTEGER NOT NULL
     )
   `);
@@ -247,6 +249,16 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_logs_cleanup ON system_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_logs_room ON system_logs(room_id, created_at);
   `);
+
+  // 執行資料庫遷移（用於更新現有資料庫）
+  try {
+    runMigrations();
+  } catch (error) {
+    console.error(
+      "[DB] Migration warning (may be safe to ignore if fresh install):",
+      error,
+    );
+  }
 
   isInitialized = true;
   console.log(

@@ -306,7 +306,12 @@ export function useWebSocket() {
         const reconnectedPlayer = msg.payload.player;
         myRole.value = reconnectedPlayer?.role || "player";
         playerId.value = reconnectedPlayer.id;
-        console.log("[Reconnect] Success!", {
+
+        // 🆕 SSOT: 更新 localStorage 中的 sessionId 為新的 odId
+        const { updateSessionId } = useDeviceId();
+        updateSessionId(odId);
+
+        console.log("[Reconnect] Success (SSOT)!", {
           roomId: roomState.value?.id,
           gameState: roomState.value?.gameState,
           currentIndex: roomState.value?.currentIndex,
@@ -315,6 +320,7 @@ export function useWebSocket() {
           playerName: reconnectedPlayer.name,
           role: myRole.value,
           isHost: reconnectedPlayer.isHost,
+          newOdId: odId,
         });
         emit("reconnectSuccess", {
           room: roomState.value,

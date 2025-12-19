@@ -806,18 +806,13 @@ const errorMessage = ref("");
 // RouletteAnimation 組件引用
 const rouletteAnimationRef = ref<any>(null);
 
-// 抽獎動畫狀態
-const isDrawing = ref(false);
+// ✅ 動畫相關狀態（由動畫組件控制，不是 UI 邏輯驅動）
+// ❌ 已移除: isDrawing, hasDrawnCurrent, showResult, lastDrawResult（改用伺服器 isRevealed）
 const autoProgressTimeout = ref<number | null>(null);
-const showResult = ref(false);
 const drawBoxContent = ref("🎁");
 const resultGiftOwner = ref("");
-const hasDrawnCurrent = ref(false);
 const hasAddedHistory = ref(false);
-const lastDrawResult = ref<{
-  drawerName: string;
-  giftOwnerName: string;
-} | null>(null);
+let animationTimeout: NodeJS.Timeout | null = null;
 
 // 動畫狀態 - 用於同步所有客戶端的動畫播放
 const isAnimationPlaying = ref(false); // 當前是否有動畫在播放（所有人同步）
@@ -870,27 +865,19 @@ function getCurrentDrawerId() {
 }
 
 // Computed properties for components
-// 抽獎進行中時不顯示最新結果（動畫完成後才顯示）
+// 🆕 SSOT: 根據伺服器廣播的 isRevealed 狀態直接過濾
+// ❌ 不再依賴本地 UI 標誌 (isDrawing, hasDrawnCurrent)
 const formattedResults = computed(() => {
   if (!roomState.value) return [];
-  let results = roomState.value.results;
 
-  // 如果正在抽獎中或動畫剛結束但還沒顯示結果，排除最新的結果
-  // 使用 hasDrawnCurrent 來判斷是否應該顯示最新結果
-  if ((isDrawing.value || !hasDrawnCurrent.value) && results.length > 0) {
-    // 檢查最新結果是否是當前抽獎者的結果
-    const lastResult = results[results.length - 1];
-    const currentDrawerId = getCurrentDrawerId();
-    if (lastResult.drawerId === currentDrawerId) {
-      results = results.slice(0, -1);
-    }
-  }
-
-  return results.map((r: any) => ({
-    order: r.order,
-    drawerName: getPlayerName(r.drawerId),
-    giftOwnerName: getPlayerName(r.giftOwnerId),
-  }));
+  // 只顯示已揭曉的結果（isRevealed=true）
+  return roomState.value.results
+    .filter((r: any) => r.isRevealed === true)
+    .map((r: any) => ({
+      order: r.order,
+      drawerName: getPlayerName(r.drawerId),
+      giftOwnerName: getPlayerName(r.giftOwnerId),
+    }));
 });
 
 const progressPlayers = computed(() => {
@@ -909,26 +896,34 @@ const progressPlayers = computed(() => {
 
 // WebSocket 事件處理函數（定義在外部以便清理）
 function onWsDrawPerformed(result: any) {
+  // 🆕 result 包含 drawerId 和 giftOwnerId（伺服器計算）
+  console.log("[Online] Draw performed, starting animation", {
+    drawerId: result.drawerId,
+    giftOwnerId: result.giftOwnerId,
+  });
   playDrawAnimation(result);
 }
 
 function onWsNextDrawer() {
-  console.log("[Online] onWsNextDrawer called, resetting UI state");
-  hasDrawnCurrent.value = false;
-  showResult.value = false;
-  drawBoxContent.value = "🎁";
-  lastDrawResult.value = null;
-  isDrawing.value = false;
-  isAnimationPlaying.value = false; // 重置動畫播放狀態
-  animationInProgress = false; // 確保動畫鎖重置
+  console.log("[Online] Next drawer event received");
 
-  // 重置 RouletteAnimation 組件狀態，讓所有客戶端同步回到 "before" 狀態
+  // 重置動畫狀態（但不需要重置其他 UI 變量）
+  isAnimationPlaying.value = false;
+  animationInProgress = false;
+  if (animationTimeout) {
+    clearTimeout(animationTimeout);
+    animationTimeout = null;
+  }
+
+  // ✅ 重置動畫組件
   nextTick(() => {
     if (rouletteAnimationRef.value?.reset) {
       rouletteAnimationRef.value.reset();
       console.log("[Online] RouletteAnimation reset completed");
     }
   });
+
+  // formattedResults 會根據新的 results[].isRevealed 自動更新
 }
 
 function onWsGameComplete() {
@@ -951,14 +946,17 @@ function onWsRoomDisbanded() {
 }
 
 function onWsGameRestarted() {
-  hasDrawnCurrent.value = false;
-  showResult.value = false;
-  drawBoxContent.value = "🎁";
-  lastDrawResult.value = null;
-  hasAddedHistory.value = false;
-  isDrawing.value = false;
-  isAnimationPlaying.value = false; // 重置動畫播放狀態
+  console.log("[Online] Game restarted");
+
+  // 重置動畫狀態
+  isAnimationPlaying.value = false;
   animationInProgress = false;
+  if (animationTimeout) {
+    clearTimeout(animationTimeout);
+    animationTimeout = null;
+  }
+  drawBoxContent.value = "🎁";
+  hasAddedHistory.value = false;
 
   // 重置 RouletteAnimation 組件狀態
   nextTick(() => {
@@ -972,12 +970,17 @@ function onWsGameRestarted() {
 
 // RouletteAnimation 動畫結束回調
 function onAnimationEnd() {
-  console.log("[Online] Animation ended");
-  isDrawing.value = false;
-  isAnimationPlaying.value = false; // 動畫完成
-  showResult.value = true;
-  hasDrawnCurrent.value = true;
-  animationInProgress = false; // 重置動畫鎖
+  console.log("[Online] Animation completed");
+  isAnimationPlaying.value = false;
+  animationInProgress = false;
+
+  if (animationTimeout) {
+    clearTimeout(animationTimeout);
+    animationTimeout = null;
+  }
+
+  // ✅ 不需要手動設置 showResult 或 lastDrawResult
+  // formattedResults 已根據伺服器廣播的 isRevealed 自動更新
 
   console.log("[Online] Animation end state", {
     isHost: isHost(),
@@ -1001,7 +1004,6 @@ function onAnimationEnd() {
 // 本地抽獎按鈕觸發的動畫開始（只有觸發者會走這個）
 function onLocalAnimationStart() {
   console.log("[Online] Local animation start (triggered by button)");
-  isDrawing.value = true;
   isAnimationPlaying.value = true;
 }
 
@@ -1240,60 +1242,22 @@ onMounted(async () => {
     }
   });
   on("stateSynced", (room: any) => {
-    console.log("[Sync] State synchronized from server:", {
+    console.log("[Sync] State synchronized from server (SSOT):", {
       gameState: room?.gameState,
       currentIndex: room?.currentIndex,
       resultsCount: room?.results?.length,
-      isAnimationPlaying: isAnimationPlaying.value,
+      revealedCount: room?.results?.filter((r: any) => r.isRevealed).length,
     });
 
-    // SSOT: 始終接受伺服器狀態，但動畫期間不覆蓋 UI 狀態變量
-    // roomState 已經在 useWebSocket 中更新，這裡只處理 UI 狀態校正
-
-    // 檢查並校正本地 UI 狀態（動畫期間跳過，避免干擾動畫顯示）
-    if (isAnimationPlaying.value || animationInProgress) {
-      console.log("[Sync] Animation in progress, skipping UI state correction");
-      return;
+    // ✅ 直接更新 roomState（SSOT）
+    // formattedResults computed 會自動根據 results[].isRevealed 重新計算
+    if (roomState.value) {
+      roomState.value = room;
     }
 
-    if (room?.gameState === "playing") {
-      const currentDrawerId = room.drawOrder?.[room.currentIndex];
-      const currentDrawerResult = room.results?.find(
-        (r: any) => r.drawerId === currentDrawerId,
-      );
-      const hasCurrentDrawerDrawn = !!currentDrawerResult;
-
-      // 如果本地 UI 狀態與伺服器不一致，校正之
-      if (hasDrawnCurrent.value !== hasCurrentDrawerDrawn) {
-        console.log(
-          "[Sync] Correcting hasDrawnCurrent:",
-          hasDrawnCurrent.value,
-          "->",
-          hasCurrentDrawerDrawn,
-        );
-        hasDrawnCurrent.value = hasCurrentDrawerDrawn;
-
-        // 如果需要顯示結果，設置 lastDrawResult
-        if (
-          hasCurrentDrawerDrawn &&
-          currentDrawerResult &&
-          !lastDrawResult.value
-        ) {
-          const drawerName = getPlayerName(currentDrawerResult.drawerId);
-          const giftOwnerName = getPlayerName(currentDrawerResult.giftOwnerId);
-          lastDrawResult.value = {
-            drawerName,
-            giftOwnerName,
-          };
-          showResult.value = true;
-          console.log(
-            "[Sync] Setting lastDrawResult from sync:",
-            lastDrawResult.value,
-          );
-        }
-      }
-    }
+    // ✅ 無需手動修改 UI 狀態變量（它們已被移除或由動畫組件管理）
   });
+
   on("preflightResponse", (payload: any) => {
     console.log(
       "[Preflight] Received response for test",
@@ -1324,65 +1288,27 @@ onMounted(async () => {
     }
   });
   on("stateValidated", (payload: any) => {
-    console.log("[Validate] Validation result:", {
+    console.log("[Validate] Validation result (SSOT):", {
       isValid: payload.isValid,
       validation: payload.validation,
-      isAnimationPlaying: isAnimationPlaying.value,
+      resultsCount: payload.correctState?.results?.length,
+      revealedCount: payload.correctState?.results?.filter(
+        (r: any) => r.isRevealed,
+      ).length,
     });
-
-    // SSOT: 始終接受伺服器狀態，但動畫期間不覆蓋 UI 狀態變量
-    // 動畫期間跳過 UI 狀態校正，避免干擾動畫顯示
-    if (isAnimationPlaying.value || animationInProgress) {
-      console.log(
-        "[Validate] Animation in progress, skipping UI state correction",
-      );
-      return;
-    }
 
     if (!payload.isValid) {
       console.warn("[Validate] State mismatch detected, correcting...");
       displayError("⚠️ 狀態不一致已自動修正");
 
-      // 強制同步本地 UI 狀態
-      if (payload.correctState?.gameState === "playing") {
-        const currentDrawerId =
-          payload.correctState.drawOrder?.[payload.correctState.currentIndex];
-        const currentDrawerResult = payload.correctState.results?.find(
-          (r: any) => r.drawerId === currentDrawerId,
-        );
-        const hasCurrentDrawerDrawn = !!currentDrawerResult;
-        hasDrawnCurrent.value = hasCurrentDrawerDrawn;
+      // ✅ 直接用伺服器狀態覆蓋（SSOT）
+      roomState.value = payload.correctState;
 
-        // 如果需要顯示結果，設置 lastDrawResult
-        if (
-          hasCurrentDrawerDrawn &&
-          currentDrawerResult &&
-          !lastDrawResult.value
-        ) {
-          const drawerName = getPlayerName(currentDrawerResult.drawerId);
-          const giftOwnerName = getPlayerName(currentDrawerResult.giftOwnerId);
-          lastDrawResult.value = {
-            drawerName,
-            giftOwnerName,
-          };
-          showResult.value = true;
-          console.log(
-            "[Validate] Setting lastDrawResult from validation:",
-            lastDrawResult.value,
-          );
-        }
-
-        // 如果動畫狀態不正確，重置之
-        if (!isDrawing.value && !hasCurrentDrawerDrawn) {
-          nextTick(() => {
-            if (rouletteAnimationRef.value?.reset) {
-              rouletteAnimationRef.value.reset();
-            }
-          });
-        }
-      }
+      // formattedResults 會自動根據 results[].isRevealed 重新計算
+      // 無需手動修改 UI 狀態變量
     }
   });
+
   on("gameStarted", () => {
     console.log("[Online] Game started event received");
     console.log("[Online] Room state after game start:", {
@@ -1392,13 +1318,14 @@ onMounted(async () => {
       playersCount: roomState.value?.players.length,
     });
 
-    // 遊戲開始，確保狀態同步
-    hasDrawnCurrent.value = false;
-    isDrawing.value = false;
-    isAnimationPlaying.value = false; // 重置動畫播放狀態
+    // 遊戲開始，重置動畫狀態
+    isAnimationPlaying.value = false;
     animationInProgress = false;
-    showResult.value = false;
-    lastDrawResult.value = null;
+    if (animationTimeout) {
+      clearTimeout(animationTimeout);
+      animationTimeout = null;
+    }
+    drawBoxContent.value = "🎁";
     hasAddedHistory.value = false;
 
     // 重置 RouletteAnimation 組件狀態
@@ -1420,15 +1347,12 @@ onMounted(async () => {
       syncState();
     }, 500);
   });
+
   on("drawPerformed", (result: any) => {
     console.log("[Online] Draw performed event received:", result);
-    console.log("[Online] Current room state:", {
-      gameState: roomState.value?.gameState,
-      currentIndex: roomState.value?.currentIndex,
-      resultsCount: roomState.value?.results?.length,
-    });
     onWsDrawPerformed(result);
   });
+
   on("nextDrawer", () => {
     console.log("[Online] Next drawer event received");
     console.log("[Online] New room state:", {
@@ -1440,6 +1364,7 @@ onMounted(async () => {
     });
     onWsNextDrawer();
   });
+
   on("gameComplete", () => {
     console.log("[Online] Game complete event received");
     console.log(
@@ -1450,8 +1375,10 @@ onMounted(async () => {
     stopSync();
     onWsGameComplete();
   });
+
   on("roomDisbanded", onWsRoomDisbanded);
   on("gameRestarted", onWsGameRestarted);
+
   on("playerDisconnected", (payload: any) => {
     if (payload.hostTransferred) {
       const newHost = roomState.value?.players.find(
@@ -1479,47 +1406,9 @@ onMounted(async () => {
     });
     router.replace({ query: {} });
 
-    // 重連成功後重置 UI 狀態
-    hasDrawnCurrent.value = false;
-    isDrawing.value = false;
-    isAnimationPlaying.value = false; // 重置動畫播放狀態
+    // 重連成功後重置動畫狀態
+    isAnimationPlaying.value = false;
     animationInProgress = false;
-    showResult.value = false;
-    lastDrawResult.value = null;
-
-    // 根據遊戲狀態決定如何恢復 UI
-    if (roomState.value?.gameState === "playing") {
-      // 檢查當前抽獎者是否已抽過
-      const currentDrawerId =
-        roomState.value.drawOrder?.[roomState.value.currentIndex];
-      const currentDrawerResult = roomState.value.results?.find(
-        (r) => r.drawerId === currentDrawerId,
-      );
-      const hasCurrentDrawerDrawn = !!currentDrawerResult;
-      hasDrawnCurrent.value = hasCurrentDrawerDrawn;
-
-      // 如果當前抽獎者已抽過，設置 lastDrawResult 以顯示結果
-      if (hasCurrentDrawerDrawn && currentDrawerResult) {
-        const drawerName = getPlayerName(currentDrawerResult.drawerId);
-        const giftOwnerName = getPlayerName(currentDrawerResult.giftOwnerId);
-        lastDrawResult.value = {
-          drawerName,
-          giftOwnerName,
-        };
-        showResult.value = true;
-        console.log("[Online] Reconnect: Showing existing result", {
-          drawerName,
-          giftOwnerName,
-        });
-      }
-
-      console.log("[Online] Reconnect: Resuming game state", {
-        currentDrawerId,
-        hasCurrentDrawerDrawn,
-        currentIndex: roomState.value.currentIndex,
-        resultsCount: roomState.value.results?.length,
-      });
-    }
 
     // 重置 RouletteAnimation 組件狀態（讓它根據 actual-result 顯示正確內容）
     nextTick(() => {
@@ -1604,7 +1493,8 @@ function startSync() {
 
   console.log("[Sync] Starting periodic state sync");
 
-  // 定期請求伺服器最新狀態
+  // ✅ 即使動畫播放中也繼續同步（無條件跳過）
+  // 事件監聽器會只更新必要的狀態（isRevealed 相關）
   syncInterval.value = window.setInterval(() => {
     if (isConnected.value && roomState.value) {
       console.log("[Sync] Requesting state update");
@@ -1885,10 +1775,6 @@ async function handleStartGame() {
     console.log("[Game] Starting game");
 
     hasAddedHistory.value = false;
-    lastDrawResult.value = null;
-    hasDrawnCurrent.value = false;
-    isDrawing.value = false;
-    showResult.value = false;
 
     // 啟動狀態驗證
     startValidation();
@@ -2040,10 +1926,9 @@ let animationInProgress = false;
 // 播放抽獎動畫 - 所有客戶端都會執行這個函數
 function playDrawAnimation(result: any) {
   console.log("[Online] playDrawAnimation called", {
-    result,
+    drawerId: result.drawerId,
+    giftOwnerId: result.giftOwnerId,
     animationInProgress,
-    isDrawing: isDrawing.value,
-    isAnimationPlaying: isAnimationPlaying.value,
   });
 
   // 防止重複觸發
@@ -2054,61 +1939,49 @@ function playDrawAnimation(result: any) {
     return;
   }
 
+  // 標記動畫正在進行
   animationInProgress = true;
-  isDrawing.value = true;
-  isAnimationPlaying.value = true; // 標記動畫正在播放
-  showResult.value = false;
+  isAnimationPlaying.value = true;
 
   const drawerName = getPlayerName(result.drawerId);
-  const giftOwner = getPlayerName(result.giftOwnerId);
-  drawBoxContent.value = giftOwner.charAt(0);
-  resultGiftOwner.value = giftOwner;
+  const giftOwnerName = getPlayerName(result.giftOwnerId);
+  drawBoxContent.value = giftOwnerName.charAt(0);
+  resultGiftOwner.value = giftOwnerName;
 
-  console.log("[Online] Animation data prepared", { drawerName, giftOwner });
-
-  // 儲存實際抽獎結果供動畫組件使用
-  const drawResult = {
+  console.log("[Online] Animation data prepared", {
     drawerName,
-    giftOwnerName: giftOwner,
-  };
-  lastDrawResult.value = drawResult;
+    giftOwnerName,
+  });
 
-  // 觸發所有客戶端的動畫同步
-  // 直接傳入結果參數，確保動畫顯示正確的名字
+  // 觸發所有客戶端的動畫
   nextTick(() => {
     setTimeout(() => {
       if (rouletteAnimationRef.value?.triggerAnimation) {
-        console.log(
-          "[Online] Triggering RouletteAnimation for all clients with result:",
-          drawResult,
-        );
-        // 傳入結果參數，確保動畫顯示正確的禮物擁有者
-        rouletteAnimationRef.value.triggerAnimation(drawResult);
+        console.log("[Online] Triggering RouletteAnimation with result:", {
+          drawerName,
+          giftOwnerName,
+        });
+        rouletteAnimationRef.value.triggerAnimation({
+          drawerName,
+          giftOwnerName,
+        });
       } else {
-        console.warn(
-          "[Online] RouletteAnimation ref not available, animation may not play",
-        );
-        // 如果組件不可用，我們仍需要清理狀態
-        setTimeout(() => {
-          animationInProgress = false;
-          isAnimationPlaying.value = false;
-          hasDrawnCurrent.value = true;
-        }, 100);
+        console.warn("[Online] RouletteAnimation ref not available");
+        // 如果組件不可用，立即清理狀態
+        animationInProgress = false;
+        isAnimationPlaying.value = false;
       }
-    }, 50); // 給 Vue 一點時間更新 props
+    }, 50);
   });
 
-  // 動畫結束後會由 onAnimationEnd 處理狀態更新
-  // 設置超時保護，防止動畫事件未觸發
-  setTimeout(() => {
-    if (animationInProgress) {
-      console.warn("[Online] Animation timeout - forcing reset");
-      animationInProgress = false;
-      isAnimationPlaying.value = false;
-      isDrawing.value = false;
-      hasDrawnCurrent.value = true;
-    }
-  }, 12000); // 12 秒超時保護
+  // 設置超時看門狗（12 秒）
+  if (animationTimeout) clearTimeout(animationTimeout);
+  animationTimeout = setTimeout(() => {
+    console.warn("[Online] Animation timeout - forcing reset");
+    isAnimationPlaying.value = false;
+    animationInProgress = false;
+    animationTimeout = null;
+  }, 12000);
 }
 
 // 重新開始遊戲（保持設定，更新 seed）

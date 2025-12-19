@@ -143,6 +143,13 @@ export const drawResults = sqliteTable("draw_results", {
   drawerId: integer("drawer_id").notNull(), // 抽獎者的 participantId
   giftOwnerId: integer("gift_owner_id").notNull(), // 被抽到的禮物擁有者 participantId
 
+  // 🆕 SSOT: 結果揭曉狀態（伺服器指示客戶端是否應顯示該結果）
+  // 預設 false（抽獎完成但尚未在客戶端動畫中揭曉）
+  // 客戶端等待動畫完成後可視需要接收 isRevealed=true 指示
+  isRevealed: integer("is_revealed", { mode: "boolean" })
+    .notNull()
+    .default(false),
+
   performedAt: integer("performed_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
