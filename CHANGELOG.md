@@ -1,5 +1,268 @@
 # 更新日誌
 
+## 版本 0.11.0 (2025-12-19)
+
+### ✨ Online 模式完整修復與改進
+
+#### 🎮 遊戲流程修復
+
+**問題解決**：
+
+- ✅ 修復動畫同步問題 - 玩家A和B現在同時看到正確的抽獎動畫
+- ✅ 修復禮物擁有者顯示錯誤 - 動畫和結果頁面顯示正確的人名
+- ✅ 修復主持人代抽按鈕被鎖定 - 按鈕狀態現在正確管理
+- ✅ 修復「查看結果」按鈕過早顯示 - 只在遊戲真正完成後顯示
+- ✅ 修復 Game complete 跳轉 - 現在正確跳轉到結果頁面
+
+#### 🔄 SSOT 架構改進（Single Source of Truth）
+
+**改進方案**：
+
+- ✅ `roomState` 始終即時更新 - 伺服器狀態為權威來源
+- ✅ 動畫只影響 UI 顯示 - 不阻擋狀態同步
+- ✅ 定期同步機制持續運作 - 動畫期間不跳過狀態更新
+- ✅ 狀態驗證機制完整 - 確保玩家間狀態一致
+
+#### 🎯 UI/UX 改進
+
+**遊戲啟動提示**：
+
+- ✅ 添加「遊戲準備中...」UI 提示 - 主持人點擊開始時顯示加載狀態
+- ✅ 脈動動畫效果 - 讓玩家知道系統正在初始化
+- ✅ 防止重複點擊 - 遊戲啟動期間按鈕被禁用
+
+**重新開始遊戲**：
+
+- ✅ 使用 `restartGame` 函數 - 完全重置房間到等候大廳
+- ✅ 清除所有抽獎記錄 - 確保新遊戲的清潔狀態
+- ✅ 重置玩家準備狀態 - 所有玩家需要重新準備
+
+#### 🔧 技術改進
+
+**動畫同步**：
+
+```typescript
+// draw_performed 事件現在同時發送結果和更新 roomState
+// 動畫使用傳入的 result 參數，不依賴 roomState
+roomState.value = msg.payload.room;
+emit("drawPerformed", msg.payload.result);
+```
+
+**狀態管理**：
+
+- ✅ 分離 UI 狀態和底層狀態 - `lastDrawResult`、`hasDrawnCurrent` vs `roomState`
+- ✅ 動畫期間只保護 UI 狀態 - `roomState` 始終同步
+- ✅ 聯動的狀態轉換 - 確保 UI 和伺服器狀態一致
+
+**廣播機制**：
+
+- ✅ 所有關鍵事件使用 `broadcastImmediate` - 確保即時性
+- ✅ 廣播包含完整房間狀態 - 所有客戶端收到同一狀態
+- ✅ 無發送者排除 - 所有玩家包括發送者都能同時看到
+
+---## 版本 0.10.6.2 (2025-12-19)
+
+### 🔗 URL 連結加入改進
+
+#### 🎯 手動確認加入機制
+
+**問題**：使用 URL 連結 `/online?room=<ID>` 加入時會自動執行複雜檢查並嘗試加入，時序問題可能導致加入失敗或無回應
+
+**改進方案**：
+
+- ✅ URL 連結不再自動加入，改為**顯示加入彈窗**
+- ✅ 房間代碼從 URL 參數自動填入，但**可手動修改**
+- ✅ 玩家名稱自動生成，可自訂
+- ✅ 由玩家**手動點擊「加入房間」按鈕**確認加入
+- ✅ 移除預先檢查邏輯，直接由伺服器在加入時驗證
+
+**使用者體驗**：
+
+1. 用戶點擊連結 `http://192.168.88.114:8000/online?room=<ID>`
+2. 自動顯示加入房間彈窗
+3. 房間代碼欄位自動填入 `<ID>`（可修改）
+4. 玩家名稱欄位自動生成隨機名稱（可修改）
+5. 用戶確認資訊無誤後點擊「加入房間」
+6. 伺服器驗證並回應加入結果
+
+**技術變更** (`app/pages/online.vue`):
+
+**簡化 `handleUrlJoin()` 函數**：
+
+```typescript
+// 移除複雜的預先檢查邏輯（API 呼叫、房間存在驗證等）
+// 直接顯示加入彈窗，讓玩家手動確認
+console.log("[URL Join] ✨ Showing join modal for room:", code);
+setSkipAutoReconnect(true);
+joinRoomCode.value = code;
+joinPlayerName.value = generateRandomUsername();
+isJoiningFromUrl.value = true;
+showJoinModal.value = true;
+```
+
+**房間代碼改為可編輯 input**：
+
+```vue
+<div style="margin: 15px 0">
+  <label>{{ $t("modal.roomCode") }}</label>
+  <input
+    type="text"
+    class="input"
+    v-model="joinRoomCode"
+    maxlength="4"
+    style="text-transform: uppercase"
+    @input="joinRoomCode = joinRoomCode.toUpperCase()"
+  />
+</div>
+```
+
+**增強驗證邏輯**：
+
+```typescript
+function confirmJoinRoom() {
+  // 驗證玩家名稱
+  if (!joinPlayerName.value.trim()) {
+    displayError(t("error.pleaseEnterName"));
+    return;
+  }
+
+  // 驗證房間代碼（必須為 4 個字元）
+  if (!joinRoomCode.value || joinRoomCode.value.trim().length !== 4) {
+    displayError(t("error.invalidRoomCode"));
+    return;
+  }
+
+  // 發送加入請求
+  wsJoinRoom(
+    joinRoomCode.value.toUpperCase(),
+    joinPlayerName.value.trim(),
+    false,
+  );
+}
+```
+
+**優勢**：
+
+- 🎯 **更直觀**：用戶可以看到即將加入的房間代碼，避免誤加入
+- ✏️ **可修正**：如果 URL 參數有誤，用戶可以手動修改
+- 🚀 **更可靠**：移除複雜的預先檢查，減少時序問題
+- 🔍 **易除錯**：流程簡單清晰，問題容易追蹤
+
+---
+
+## 版本 0.10.6.1 (2025-12-19)
+
+### 🔧 連線品質與除錯改進
+
+#### 🛡️ Pre-flight 靜默執行
+
+**問題**：Pre-flight 檢查失敗訊息過於強制,影響用戶體驗,且虛擬玩家無法正常開始遊戲
+
+**解決方案**：
+
+- ✅ Pre-flight 檢查改為**靜默模式**,後台執行,不阻塞遊戲開始
+- ✅ 虛擬玩家和自己自動標記為通過,避免自我檢查
+- ✅ 檢查結果僅作為**警告提示**,不影響遊戲啟動
+- ✅ 超時未回應的玩家顯示「⚠️ 目前連線較弱」提示
+
+#### ⏱️ 連線超時 Fallback 機制
+
+**問題**：用戶使用連結加入 `/online?room=<ID>` 時,如果連線較慢,會一直停留在「正在連線...」畫面
+
+**實施內容**：
+
+- ✅ 5 秒後顯示連線較慢提示：「⚠️ 連線時間較長,請檢查網路狀態」
+- ✅ 顯示「🏠 返回首頁」按鈕,讓用戶可選擇放棄等待
+- ✅ 10 秒完全超時,停止連線嘗試
+- ✅ 連線成功後自動清除超時標記和提示
+
+**技術實現** (`app/pages/online.vue`):
+
+```typescript
+// 新增狀態變數
+const connectionTimeout = ref(false);
+const showConnectionTimeout = ref(false);
+
+// waitForConnection() 增強
+setTimeout(() => {
+  if (!isConnected.value) {
+    connectionTimeout.value = true;
+    showConnectionTimeout.value = true;
+  }
+}, 5000); // 5秒顯示fallback
+
+setTimeout(() => {
+  clearInterval(checkInterval);
+  resolve();
+}, 10000); // 10秒完全超時
+```
+
+**UI 實現**:
+
+```vue
+<div v-if="!isConnected" class="card">
+  <p>⏳ 正在連線...</p>
+  <p v-if="showConnectionTimeout" style="color: #ff6b6b;">
+    ⚠️ 連線時間較長,請檢查網路狀態
+  </p>
+  <button v-if="showConnectionTimeout" @click="router.push('/')">
+    🏠 返回首頁
+  </button>
+</div>
+```
+
+#### 🔍 URL Join 詳細除錯日誌
+
+**問題**：使用連結 `/online?room=<ID>` 進入時,terminal 顯示「Player connected」但網頁端無反應
+
+**改進措施**：
+
+- ✅ 全流程 console.log 追蹤：
+  - `handleUrlJoin()` 每個步驟
+  - `confirmJoinRoom()` 執行流程
+  - `onMounted()` 初始化過程
+  - WebSocket `joinRoom()` 發送訊息
+  - `room_joined` 事件接收
+  - `send()` 函數訊息發送狀態
+- ✅ 使用 emoji 標記不同階段便於追蹤：
+  - 🚀 開始流程
+  - 📡 API 請求
+  - 📥 收到回應
+  - ✅ 成功步驟
+  - ❌ 錯誤情況
+  - ⚠️ 警告訊息
+
+**檢查點覆蓋**：
+
+1. URL 參數解析
+2. WebSocket 連線狀態
+3. API 房間檢查
+4. 加入彈窗顯示
+5. 確認加入按鈕點擊
+6. WebSocket 訊息發送
+7. 伺服器回應接收
+8. 房間狀態更新
+9. UI 渲染完成
+
+**除錯示例輸出**：
+
+```
+[Online] 🎬 onMounted started
+[Online] 🔌 Initiating WebSocket connection...
+[Online] 🔍 URL room code: ABCD
+[URL Join] 🚀 Starting URL join process...
+[URL Join] 📡 Fetching room info from API...
+[URL Join] 📥 API response: {exists: true, canJoin: true}
+[URL Join] ✨ Can join room, showing join modal
+[Join] 🎯 confirmJoinRoom called
+[WS] 🚀 joinRoom called
+[WS] 📤 Sending message: join_room
+[WS] ✅ room_joined received
+[Online] 🔄 Room updated event received
+```
+
+---
+
 ## 版本 0.10.6 (2025-12-19)
 
 ### 🎯 SSOT 架構全面強化

@@ -435,7 +435,7 @@ function handlePasswordProtectionToggle() {
 }
 
 // 應用資訊
-const appVersion = "0.10.6";
+const appVersion = "0.11.0";
 const buildNumber = computed(() => {
   const date = new Date();
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;

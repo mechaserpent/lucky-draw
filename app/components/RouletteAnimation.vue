@@ -272,6 +272,70 @@ function performDrawAnimation() {
   });
 }
 
+// 使用指定結果執行動畫（用於外部觸發時確保結果正確）
+function performDrawAnimationWithResult(
+  result?: { drawerName: string; giftOwnerName: string } | null,
+) {
+  // 準備滾動項目，使用指定的結果
+  prepareRouletteItemsWithResult(result);
+
+  // 等待 DOM 更新後獲取實際寬度
+  nextTick(() => {
+    const ITEM_WIDTH = getActualItemWidth();
+    performDrawAnimationWithWidth(ITEM_WIDTH);
+  });
+}
+
+// 準備滾動項目（使用指定的結果）
+function prepareRouletteItemsWithResult(
+  result?: { drawerName: string; giftOwnerName: string } | null,
+) {
+  const items: RouletteItem[] = [];
+  const emojis = ["🎁", "🎀", "🎊", "🎉", "🎈", "⭐", "💝", "🎄"];
+
+  // 計算需要的克隆次數，確保至少有 MIN_ITEMS 個項目
+  const participantCount = props.participants.length || 1;
+  const cloneTimes = Math.max(Math.ceil(MIN_ITEMS / participantCount), 12);
+
+  // 克隆參與者列表多次（打亂順序增加神秘感）
+  for (let clone = 0; clone < cloneTimes; clone++) {
+    // 每輪隨機打亂參與者順序
+    const shuffled = [...props.participants].sort(() => Math.random() - 0.5);
+    shuffled.forEach((p, idx) => {
+      items.push({
+        id: p.id,
+        name: p.name,
+        emoji: emojis[idx % emojis.length],
+        isWinner: false,
+        isRare: Math.random() > 0.7, // 30% 機率是稀有
+      });
+    });
+  }
+
+  // 隨機選擇一個位置作為「視覺停止點」（在中間偏後的位置）
+  const targetZoneStart = Math.floor(items.length * 0.55);
+  const targetZoneEnd = Math.floor(items.length * 0.75);
+  const winnerIdx =
+    targetZoneStart +
+    Math.floor(Math.random() * (targetZoneEnd - targetZoneStart));
+
+  // 將 winner 位置的名字替換為實際結果
+  // 優先使用傳入的結果，否則使用 props.actualResult
+  const giftOwnerName =
+    result?.giftOwnerName || props.actualResult?.giftOwnerName;
+  if (giftOwnerName) {
+    items[winnerIdx].name = giftOwnerName;
+    console.log("[RouletteAnimation] Setting winner name:", giftOwnerName);
+  } else {
+    console.warn("[RouletteAnimation] No winner name available!");
+  }
+
+  items[winnerIdx].isWinner = true;
+  items[winnerIdx].isRare = true;
+
+  extendedItems.value = items;
+}
+
 function performDrawAnimationWithWidth(ITEM_WIDTH: number) {
   // 計算位置相關數值
   const winnerIndex = extendedItems.value.findIndex((item) => item.isWinner);
@@ -413,7 +477,20 @@ defineExpose({
     showWinnerHighlight.value = false;
   },
   // 讓父組件可以外部觸發動畫（用於同步多個客戶端）
-  triggerAnimation: () => {
+  // 可選參數 result 用於傳入抽獎結果（確保 props 更新前也能正確顯示）
+  triggerAnimation: (result?: {
+    drawerName: string;
+    giftOwnerName: string;
+  }) => {
+    // 如果有傳入結果，使用傳入的結果
+    const actualResult = result || props.actualResult;
+
+    console.log("[RouletteAnimation] triggerAnimation called", {
+      hasResult: !!result,
+      propsActualResult: props.actualResult,
+      usedResult: actualResult,
+    });
+
     if (state.value !== "drawing") {
       showWinnerHighlight.value = false;
       trackStyle.value = {};
@@ -421,7 +498,8 @@ defineExpose({
       emit("animation-start");
       document.body.classList.add("animation-paused");
       nextTick(() => {
-        performDrawAnimation();
+        // 使用傳入的結果或 props 中的結果
+        performDrawAnimationWithResult(actualResult);
       });
     }
   },

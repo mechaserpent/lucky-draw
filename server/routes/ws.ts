@@ -341,9 +341,10 @@ export default defineWebSocketHandler({
           // Pre-flight 連線測試
           const testId = msg.payload?.testId || "unknown";
           console.log(
-            `[Preflight] Received test from ${odId}, testId: ${testId}`,
+            `[Preflight] Received test from ${odId}, testId: ${testId}, roomId: ${peerObj.roomId}`,
           );
 
+          // 回應發送者
           peer.send(
             JSON.stringify({
               type: "preflight_response",
@@ -356,9 +357,10 @@ export default defineWebSocketHandler({
             }),
           );
 
-          // 如果在房間中，廣播給其他玩家（用於驗證通信）
+          // 如果在房間中，立即廣播給其他玩家（用於驗證通信）
           if (peerObj.roomId) {
-            broadcastToRoom(
+            console.log(`[Preflight] Broadcasting to room ${peerObj.roomId}`);
+            broadcastImmediate(
               peerObj.roomId,
               {
                 type: "preflight_broadcast",
@@ -671,16 +673,19 @@ export default defineWebSocketHandler({
             return;
           }
 
-          broadcastToRoom(startedRoom.id, {
+          console.log("[WS] Game started:", {
+            roomId: startedRoom.id,
+            gameState: startedRoom.gameState,
+            playersCount: startedRoom.players.length,
+            drawOrderLength: startedRoom.drawOrder.length,
+            firstDrawer: startedRoom.drawOrder[0],
+          });
+
+          // 廣播給所有人（包括發送者），使用立即廣播
+          broadcastImmediate(startedRoom.id, {
             type: "game_started",
             payload: { room: toRoomState(startedRoom) },
           });
-          peer.send(
-            JSON.stringify({
-              type: "game_started",
-              payload: { room: toRoomState(startedRoom) },
-            }),
-          );
           break;
         }
 
@@ -709,28 +714,21 @@ export default defineWebSocketHandler({
             player.participantId,
           );
           if (result) {
-            // 立即廣播抽獎結果，確保動畫同步
-            broadcastToRoom(
-              result.room.id,
-              {
-                type: "draw_performed",
-                payload: {
-                  room: toRoomState(result.room),
-                  result: result.result,
-                },
+            console.log("[WS] Draw performed:", {
+              roomId: result.room.id,
+              drawer: result.result.drawerId,
+              giftOwner: result.result.giftOwnerId,
+              resultsCount: result.room.results.length,
+            });
+
+            // 廣播給所有人（包括發送者），使用立即廣播
+            broadcastImmediate(result.room.id, {
+              type: "draw_performed",
+              payload: {
+                room: toRoomState(result.room),
+                result: result.result,
               },
-              undefined,
-              true,
-            );
-            peer.send(
-              JSON.stringify({
-                type: "draw_performed",
-                payload: {
-                  room: toRoomState(result.room),
-                  result: result.result,
-                },
-              }),
-            );
+            });
           }
           break;
         }
@@ -749,28 +747,21 @@ export default defineWebSocketHandler({
             msg.payload.participantId,
           );
           if (result) {
-            // 立即廣播抽獎結果，確保動畫同步
-            broadcastToRoom(
-              result.room.id,
-              {
-                type: "draw_performed",
-                payload: {
-                  room: toRoomState(result.room),
-                  result: result.result,
-                },
+            console.log("[WS] Host draw performed:", {
+              roomId: result.room.id,
+              drawer: result.result.drawerId,
+              giftOwner: result.result.giftOwnerId,
+              resultsCount: result.room.results.length,
+            });
+
+            // 廣播給所有人（包括發送者），使用立即廣播
+            broadcastImmediate(result.room.id, {
+              type: "draw_performed",
+              payload: {
+                room: toRoomState(result.room),
+                result: result.result,
               },
-              undefined,
-              true,
-            );
-            peer.send(
-              JSON.stringify({
-                type: "draw_performed",
-                payload: {
-                  room: toRoomState(result.room),
-                  result: result.result,
-                },
-              }),
-            );
+            });
           }
           break;
         }
@@ -790,22 +781,20 @@ export default defineWebSocketHandler({
               updatedRoom.gameState === "complete"
                 ? "game_complete"
                 : "next_drawer";
-            // 立即廣播狀態變化
-            broadcastToRoom(
-              updatedRoom.id,
-              {
-                type: msgType,
-                payload: { room: toRoomState(updatedRoom) },
-              },
-              undefined,
-              true,
-            );
-            peer.send(
-              JSON.stringify({
-                type: msgType,
-                payload: { room: toRoomState(updatedRoom) },
-              }),
-            );
+
+            console.log("[WS] Next drawer:", {
+              roomId: updatedRoom.id,
+              msgType,
+              gameState: updatedRoom.gameState,
+              currentIndex: updatedRoom.currentIndex,
+              resultsCount: updatedRoom.results.length,
+            });
+
+            // 廣播給所有人（包括發送者），使用立即廣播
+            broadcastImmediate(updatedRoom.id, {
+              type: msgType,
+              payload: { room: toRoomState(updatedRoom) },
+            });
           }
           break;
         }
@@ -819,24 +808,22 @@ export default defineWebSocketHandler({
             return;
           }
 
-          const startedRoom = await roomService.startGame(peerObj.roomId);
-          if (startedRoom) {
-            // 立即廣播遊戲開始
-            broadcastToRoom(
-              startedRoom.id,
-              {
-                type: "game_started",
-                payload: { room: toRoomState(startedRoom) },
-              },
-              undefined,
-              true,
-            );
-            peer.send(
-              JSON.stringify({
-                type: "game_restarted",
-                payload: { room: toRoomState(restartedRoom) },
-              }),
-            );
+          // 使用 restartGame 函數來重置房間狀態回到等候大廳
+          const restartedRoom = await roomService.restartGame(peerObj.roomId);
+          if (restartedRoom) {
+            console.log("[WS] Game restarted (back to lobby):", {
+              roomId: restartedRoom.id,
+              gameState: restartedRoom.gameState,
+              seed: restartedRoom.seed,
+              resultsCount: restartedRoom.results.length,
+              playersCount: restartedRoom.players.length,
+            });
+
+            // 廣播給所有人（包括發送者），使用立即廣播
+            broadcastImmediate(restartedRoom.id, {
+              type: "game_restarted",
+              payload: { room: toRoomState(restartedRoom) },
+            });
           }
           break;
         }

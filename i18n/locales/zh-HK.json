@@ -191,6 +191,7 @@
     "enterPlayerName": "輸入玩家名字...",
     "allowSpectators": "允許觀眾加入",
     "forceStart": "強制開始",
+    "startingGame": "遊戲準備中...",
     "leaveRoom": "離開房間",
     "notAllReady": "有玩家尚未準備，強制開始將忽略未準備狀態",
     "yourTurn": "輪到你了！點擊開始抽獎",

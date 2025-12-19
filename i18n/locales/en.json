@@ -191,6 +191,7 @@
     "enterPlayerName": "Enter player name...",
     "allowSpectators": "Allow Spectators",
     "forceStart": "Force Start",
+    "startingGame": "Starting game...",
     "leaveRoom": "Leave Room",
     "notAllReady": "Some players are not ready, force start will ignore ready status",
     "yourTurn": "It's your turn! Click to start drawing",

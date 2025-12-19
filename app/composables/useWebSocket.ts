@@ -116,7 +116,13 @@ export function useWebSocket() {
 
   function send(msg: WSMessage) {
     if (ws.value?.readyState === WebSocket.OPEN) {
+      console.log("[WS] 📤 Sending message:", msg.type, msg);
       ws.value.send(JSON.stringify(msg));
+    } else {
+      console.warn(
+        "[WS] ⚠️ Cannot send, WebSocket not open. State:",
+        ws.value?.readyState,
+      );
     }
   }
 
@@ -282,12 +288,17 @@ export function useWebSocket() {
 
       case "room_created":
       case "room_joined":
+        console.log("[WS] ✅ room_joined received");
+        console.log("[WS] 📦 Payload:", msg.payload);
         roomState.value = msg.payload.room;
+        console.log("[WS] 🏠 Room state updated:", roomState.value);
         if (msg.payload.role) {
           myRole.value = msg.payload.role;
+          console.log("[WS] 🎭 Role set to:", myRole.value);
         }
         emit("roomJoined", roomState.value);
         emit("roomUpdated", roomState.value); // 同時觸發 roomUpdated 確保相容性
+        console.log("[WS] 📣 Events emitted: roomJoined, roomUpdated");
         break;
 
       case "reconnect_success":
@@ -296,7 +307,10 @@ export function useWebSocket() {
         myRole.value = reconnectedPlayer?.role || "player";
         playerId.value = reconnectedPlayer.id;
         console.log("[Reconnect] Success!", {
-          roomId: roomState.value.id,
+          roomId: roomState.value?.id,
+          gameState: roomState.value?.gameState,
+          currentIndex: roomState.value?.currentIndex,
+          resultsCount: roomState.value?.results?.length,
           playerId: reconnectedPlayer.id,
           playerName: reconnectedPlayer.name,
           role: myRole.value,
@@ -324,21 +338,47 @@ export function useWebSocket() {
         break;
 
       case "game_started":
+        console.log("[WS] Game started:", {
+          gameState: msg.payload.room?.gameState,
+          currentIndex: msg.payload.room?.currentIndex,
+          drawOrder: msg.payload.room?.drawOrder,
+          playersCount: msg.payload.room?.players?.length,
+        });
         roomState.value = msg.payload.room;
         emit("gameStarted", roomState.value);
         break;
 
       case "draw_performed":
+        console.log("[WS] Draw performed:", {
+          gameState: msg.payload.room?.gameState,
+          currentIndex: msg.payload.room?.currentIndex,
+          resultsCount: msg.payload.room?.results?.length,
+          result: msg.payload.result,
+        });
+        // SSOT: roomState 始終即時更新，這是伺服器的權威狀態
         roomState.value = msg.payload.room;
+        // 發送結果觸發動畫，動畫使用傳入的 result 參數，不依賴 roomState
         emit("drawPerformed", msg.payload.result);
         break;
 
       case "next_drawer":
+        console.log("[WS] Next drawer:", {
+          gameState: msg.payload.room?.gameState,
+          currentIndex: msg.payload.room?.currentIndex,
+          currentDrawerId:
+            msg.payload.room?.drawOrder?.[msg.payload.room?.currentIndex],
+          resultsCount: msg.payload.room?.results?.length,
+        });
         roomState.value = msg.payload.room;
         emit("nextDrawer", roomState.value);
         break;
 
       case "game_complete":
+        console.log("[WS] Game complete:", {
+          gameState: msg.payload.room?.gameState,
+          resultsCount: msg.payload.room?.results?.length,
+          playersCount: msg.payload.room?.players?.length,
+        });
         roomState.value = msg.payload.room;
         // 遊戲完成後清除重連資訊，避免返回首頁時觸發自動重連
         clearReconnectInfo();
@@ -476,16 +516,24 @@ export function useWebSocket() {
     playerName: string,
     asSpectator: boolean = false,
   ) {
+    console.log("[WS] 🚀 joinRoom called");
+    console.log("[WS] 📋 Room ID:", roomId);
+    console.log("[WS] 👤 Player name:", playerName);
+    console.log("[WS] 👁️ As spectator:", asSpectator);
+
     const { getDeviceId, clearReconnectInfo: clearDeviceReconnectInfo } =
       useDeviceId();
     const deviceId = getDeviceId();
+    console.log("[WS] 🔑 Device ID:", deviceId);
 
     // 清除舊的重連資訊，避免與自動重連衝突
     clearDeviceReconnectInfo();
 
+    const payload = { roomId, playerName, asSpectator, deviceId };
+    console.log("[WS] 📤 Sending join_room message:", payload);
     send({
       type: "join_room",
-      payload: { roomId, playerName, asSpectator, deviceId },
+      payload,
     });
   }
 
