@@ -71,7 +71,25 @@ export function useWebSocket() {
   }
 
   function connect() {
-    if (ws.value?.readyState === WebSocket.OPEN) return;
+    // Prevent re-connection if already open, connecting, or closing
+    if (ws.value?.readyState === WebSocket.OPEN) {
+      console.log("[WS] Already connected, skipping connect()");
+      return;
+    }
+    if (ws.value?.readyState === WebSocket.CONNECTING) {
+      console.log("[WS] Already connecting, skipping connect()");
+      return;
+    }
+    if (ws.value?.readyState === WebSocket.CLOSING) {
+      console.log("[WS] Socket is closing, waiting for close before reconnect");
+      return;
+    }
+
+    // Only close socket if it's currently OPEN (avoid interrupting an in-flight close)
+    if (ws.value && ws.value.readyState === WebSocket.OPEN) {
+      console.log("[WS] Closing existing open socket before reconnect");
+      ws.value.close();
+    }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -307,9 +325,23 @@ export function useWebSocket() {
         myRole.value = reconnectedPlayer?.role || "player";
         playerId.value = reconnectedPlayer.id;
 
-        // 🆕 SSOT: 更新 localStorage 中的 sessionId 為新的 odId
+        // 🆕 SSOT: 更新 localStorage 中的 sessionId 為新的 sessionId（使用 reconnected player id）
         const { updateSessionId } = useDeviceId();
-        updateSessionId(odId);
+        if (reconnectedPlayer?.id && typeof updateSessionId === "function") {
+          try {
+            updateSessionId(reconnectedPlayer.id);
+            console.log(
+              "[Reconnect] Session ID updated (SSOT) to:",
+              reconnectedPlayer.id,
+            );
+          } catch (e) {
+            console.warn("[Reconnect] Failed to update session ID:", e);
+          }
+        } else {
+          console.warn(
+            "[Reconnect] Could not update session ID - missing player id or update function",
+          );
+        }
 
         console.log("[Reconnect] Success (SSOT)!", {
           roomId: roomState.value?.id,
@@ -320,7 +352,7 @@ export function useWebSocket() {
           playerName: reconnectedPlayer.name,
           role: myRole.value,
           isHost: reconnectedPlayer.isHost,
-          newOdId: odId,
+          newOdId: reconnectedPlayer.id,
         });
         emit("reconnectSuccess", {
           room: roomState.value,
@@ -341,6 +373,17 @@ export function useWebSocket() {
       case "settings_updated":
         roomState.value = msg.payload.room;
         emit("roomUpdated", roomState.value);
+        break;
+
+      case "preflight_start":
+        // v0.10: Preflight 準備階段開始
+        console.log("[WS] Preflight started:", {
+          gameState: msg.payload.room?.gameState,
+          countdown: msg.payload.countdown,
+          playersCount: msg.payload.room?.players?.length,
+        });
+        roomState.value = msg.payload.room;
+        emit("preflightStart", msg.payload);
         break;
 
       case "game_started":
@@ -365,6 +408,18 @@ export function useWebSocket() {
         roomState.value = msg.payload.room;
         // 發送結果觸發動畫，動畫使用傳入的 result 參數，不依賴 roomState
         emit("drawPerformed", msg.payload.result);
+        break;
+
+      case "result_revealed":
+        console.log("[WS] Result revealed:", {
+          gameState: msg.payload.room?.gameState,
+          currentIndex: msg.payload.room?.currentIndex,
+          resultsCount: msg.payload.room?.results?.length,
+          result: msg.payload.result,
+        });
+        // update authoritative room state and emit an event so UI can unlock
+        roomState.value = msg.payload.room;
+        emit("resultRevealed", msg.payload.result);
         break;
 
       case "next_drawer":

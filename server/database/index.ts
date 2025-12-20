@@ -250,9 +250,15 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_logs_room ON system_logs(room_id, created_at);
   `);
 
-  // 執行資料庫遷移（用於更新現有資料庫）
+  // 執行資料庫遷移（用於更新現有資料庫）。改為由部署環境決定是否自動執行，以便直接 clone 可部署。
   try {
-    runMigrations();
+    if (process.env.MIGRATE_ON_STARTUP === "true") {
+      runMigrations();
+    } else {
+      console.log(
+        "[DB] Skipping automatic migrations; set MIGRATE_ON_STARTUP=true to enable.",
+      );
+    }
   } catch (error) {
     console.error(
       "[DB] Migration warning (may be safe to ignore if fresh install):",

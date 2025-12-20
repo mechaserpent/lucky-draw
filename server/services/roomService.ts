@@ -48,7 +48,7 @@ export interface Room {
   hostId: string; // 當前主持人 ID
   players: RoomPlayer[];
   spectators: RoomPlayer[];
-  gameState: "waiting" | "playing" | "complete";
+  gameState: "waiting" | "preflight" | "playing" | "complete";
   settings: RoomSettings;
   seed: number;
   drawSequence: Record<number, number>;
@@ -56,6 +56,19 @@ export interface Room {
   currentIndex: number;
   results: DrawResult[];
   serverHosted: boolean; // v0.9.0: 是否為伺服器託管模式
+
+  // Derived fields (optional, server may attach)
+  totalCount?: number;
+  revealedCount?: number;
+  remainingPlayers?: number[];
+  remainingPlayersCount?: number;
+  remainingGifts?: number[];
+  remainingGiftsCount?: number;
+  progress?: { revealed: number; total: number };
+  currentDrawerId?: number;
+  isDrawInProgress?: boolean;
+  lastResultTimestamp?: number | null;
+  lastResultAt?: number | null;
 }
 
 // ==================== 工具函數 ====================
@@ -214,6 +227,8 @@ async function _loadRoomFromDbInternal(
     order: r.order,
     drawerId: r.drawerId,
     giftOwnerId: r.giftOwnerId,
+    isRevealed: !!r.isRevealed,
+    performedAt: r.performedAt,
   }));
 
   // v0.9.0: 處理 firstDrawerMode 向後兼容（將 'host' 轉換為 'random'）
@@ -222,13 +237,39 @@ async function _loadRoomFromDbInternal(
     firstDrawerMode = "random";
   }
 
+  const totalCount = players.length;
+  const revealedCount = results.filter((r: any) => !!r.isRevealed).length;
+  // remainingPlayers: list of participantIds who haven't drawn yet
+  const drawnSet = new Set(results.map((r: any) => r.drawerId));
+  const remainingPlayers = drawOrder.filter((pid) => !drawnSet.has(pid));
+  const remainingPlayersCount = remainingPlayers.length;
+  // remainingGifts: participantIds not yet assigned as gift owners
+  const assignedGiftsSet = new Set(results.map((r: any) => r.giftOwnerId));
+  const remainingGifts = players
+    .map((p) => p.participantId)
+    .filter((pid) => !assignedGiftsSet.has(pid));
+  const remainingGiftsCount = remainingGifts.length;
+  const progress = { revealed: revealedCount, total: totalCount };
+  const currentDrawerId = drawOrder[roomData.currentIndex];
+  const isDrawInProgress = false; // server-side flag can be set by other flows if needed
+  const lastResultTimestamp =
+    results.reduce(
+      (acc, r: any) =>
+        r.performedAt ? Math.max(acc, Number(r.performedAt)) : acc,
+      0,
+    ) || null;
+
   return {
     id: roomData.id,
     creatorId: (roomData as any).creatorId || roomData.hostId, // v0.9.0: 添加創建者 ID
     hostId: roomData.hostId,
     players,
     spectators,
-    gameState: roomData.gameState as "waiting" | "playing" | "complete",
+    gameState: roomData.gameState as
+      | "waiting"
+      | "preflight"
+      | "playing"
+      | "complete",
     settings: {
       maxPlayers: roomData.maxPlayers,
       allowSpectators: !!roomData.allowSpectators,
@@ -242,6 +283,21 @@ async function _loadRoomFromDbInternal(
     currentIndex: roomData.currentIndex,
     results,
     serverHosted: (roomData as any).serverHosted !== false, // v0.9.0: 默認為 true
+
+    // Derived SSOT fields
+    totalCount,
+    revealedCount,
+    remainingPlayers,
+    remainingPlayersCount,
+    remainingGifts,
+    remainingGiftsCount,
+    progress,
+    currentDrawerId,
+    isDrawInProgress,
+    lastResultTimestamp,
+
+    // Backward-compat alias
+    lastResultAt: lastResultTimestamp,
   };
 }
 
@@ -794,6 +850,35 @@ export async function renamePlayer(
   return loadRoomFromDb(roomId);
 }
 
+// v0.10: 更新房間遊戲狀態（用於 preflight 準備階段）
+export async function updateGameState(
+  roomId: string,
+  newGameState: "waiting" | "preflight" | "playing" | "complete",
+): Promise<Room | null> {
+  const room = await db.query.rooms.findFirst({
+    where: eq(schema.rooms.id, roomId),
+  });
+
+  if (!room) return null;
+
+  // 更新資料庫中的 gameState（暫時轉換為相容格式）
+  const dbGameState = newGameState === "preflight" ? "waiting" : newGameState;
+
+  await db
+    .update(schema.rooms)
+    .set({ gameState: dbGameState as any })
+    .where(eq(schema.rooms.id, roomId));
+
+  // 載入更新後的房間並手動設置 gameState
+  const updatedRoom = await loadRoomFromDb(roomId);
+  if (updatedRoom) {
+    // 直接修改 gameState 以支援 preflight
+    (updatedRoom as any).gameState = newGameState;
+  }
+
+  return updatedRoom;
+}
+
 export async function startGame(
   roomId: string,
   seed?: number,
@@ -949,13 +1034,14 @@ export async function performDraw(
     giftOwnerId,
   };
 
-  // 儲存結果（預設 isRevealed=false，等待客戶端動畫完成後揭曉）
+  // 儲存結果但先不揭曉（isRevealed=false），由任一客戶端在動畫完成後通知伺服器揭曉
   await db.insert(schema.drawResults).values({
     roomId,
     order: result.order,
     drawerId: result.drawerId,
     giftOwnerId: result.giftOwnerId,
-    isRevealed: false, // 🆕 新抽獎預設未揭曉
+    isRevealed: false,
+    // DB requires non-null performed_at; set to now and server will update again at reveal if needed
     performedAt: new Date(),
   });
 
@@ -976,7 +1062,59 @@ export async function performDraw(
   });
 
   const updatedRoom = await loadRoomFromDb(roomId);
-  return updatedRoom ? { room: updatedRoom, result } : null;
+
+  // enrich returned result with isRevealed and performedAt (SSOT)
+  const lastResult = updatedRoom?.results?.[updatedRoom.results.length - 1];
+  const returnedResult = {
+    order: result.order,
+    drawerId: result.drawerId,
+    giftOwnerId: result.giftOwnerId,
+    isRevealed: !!(lastResult as any)?.isRevealed,
+    performedAt: (lastResult as any)?.performedAt || new Date(),
+  };
+
+  return updatedRoom
+    ? { room: updatedRoom, result: returnedResult as DrawResult }
+    : null;
+}
+
+export async function revealResult(
+  roomId: string,
+  order: number,
+): Promise<{ room: Room; result: DrawResult } | null> {
+  // Ensure result exists
+  const existing = await db.query.drawResults.findFirst({
+    where: and(
+      eq(schema.drawResults.roomId, roomId),
+      eq(schema.drawResults.order, order),
+    ),
+  });
+  if (!existing) return null;
+
+  if (!existing.isRevealed) {
+    // mark as revealed and set performedAt
+    await db
+      .update(schema.drawResults)
+      .set({ isRevealed: true, performedAt: new Date() })
+      .where(
+        and(
+          eq(schema.drawResults.roomId, roomId),
+          eq(schema.drawResults.order, order),
+        ),
+      );
+
+    await db
+      .update(schema.rooms)
+      .set({ lastActivityAt: new Date() })
+      .where(eq(schema.rooms.id, roomId));
+  }
+
+  // fetch updated room and enrich result
+  const updatedRoom = await loadRoomFromDb(roomId);
+  if (!updatedRoom) return null;
+
+  const enriched = updatedRoom.results.find((r) => r.order === order);
+  return enriched ? { room: updatedRoom, result: enriched } : null;
 }
 
 export async function nextDrawer(roomId: string): Promise<Room | null> {

@@ -2,8 +2,9 @@
 
 一個互動式的聖誕節交換禮物抽獎網頁應用程式，支援主持模式和多人連線模式。
 
-**線上體驗:** [https://lucky-draw-4s24.onrender.com/](https://lucky-draw-4s24.onrender.com/)
-**GitHub:** [https://github.com/mechaserpent/lucky-draw](https://github.com/mechaserpent/lucky-draw)
+**當前版本:** v0.12.0  
+**線上體驗:** [https://lucky-draw-4s24.onrender.com/](https://lucky-draw-4s24.onrender.com/)  
+**GitHub:** [https://github.com/mechaserpent/lucky-draw](https://github.com/mechaserpent/lucky-draw)  
 **聯繫:** maverick.hlc
 
 ## ✨ 功能特色

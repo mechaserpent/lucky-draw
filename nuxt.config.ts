@@ -1,3 +1,15 @@
+import { readFileSync } from "node:fs";
+
+const packageJson = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
+);
+const appVersion = packageJson.version || "0.0.0";
+const buildTimestamp = process.env.BUILD_TIMESTAMP || new Date().toISOString();
+const buildNumber =
+  process.env.BUILD_NUMBER ||
+  process.env.BUILD_ID ||
+  buildTimestamp.replace(/[^0-9]/g, "").slice(0, 12);
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: false },
@@ -15,6 +27,11 @@ export default defineNuxtConfig({
         "連鎖式抽獎 - 抽到誰的禮物，就換誰抽！",
       siteIconLeft: process.env.NUXT_PUBLIC_SITE_ICON_LEFT || "🎄",
       siteIconRight: process.env.NUXT_PUBLIC_SITE_ICON_RIGHT || "🎁",
+
+      // 版本資訊
+      appVersion,
+      buildNumber,
+      buildTimestamp,
 
       // 人數限制
       minPlayers: parseInt(process.env.NUXT_PUBLIC_MIN_PLAYERS || "2"),
@@ -114,6 +131,6 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-12-16",
 
   imports: {
-    presets: [],
+    dirs: ["app/composables"],
   },
 });

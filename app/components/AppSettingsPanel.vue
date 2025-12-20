@@ -218,7 +218,7 @@
           {{ $t("appSettings.about.version") }} {{ appVersion }} ({{
             $t("appSettings.about.build")
           }}
-          {{ buildNumber }})
+          {{ buildLabel }})
         </p>
       </div>
 
@@ -382,6 +382,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAppVersion } from "~/composables/useAppVersion";
 const props = defineProps<{
   readonly?: boolean;
 }>();
@@ -435,11 +436,7 @@ function handlePasswordProtectionToggle() {
 }
 
 // 應用資訊
-const appVersion = "0.11.0";
-const buildNumber = computed(() => {
-  const date = new Date();
-  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-});
+const { version: appVersion, buildLabel } = useAppVersion();
 const currentYear = new Date().getFullYear();
 
 // 社交登入（預留）

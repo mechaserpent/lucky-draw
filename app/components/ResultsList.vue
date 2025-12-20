@@ -14,9 +14,9 @@
       </div>
       <div v-for="r in sortedResults" :key="r.order" class="result-item">
         <span class="order">{{ r.order }}</span>
-        <span class="drawer">{{ r.drawerName }}</span>
+        <span class="drawer">{{ r.drawerName || "?" }}</span>
         <span class="arrow">➡️</span>
-        <span class="gift">{{ r.giftOwnerName }}</span>
+        <span class="gift">{{ r.giftOwnerName || "?" }}</span>
       </div>
     </div>
   </div>

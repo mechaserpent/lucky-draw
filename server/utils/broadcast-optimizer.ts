@@ -133,6 +133,43 @@ class DatabaseBatchUpdater {
       this.processing = false;
     }
   }
+
+  /**
+   * Cleanup on shutdown - cancel pending operations
+   */
+  cleanup() {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = null;
+    }
+    this.updates = [];
+    this.processing = false;
+  }
 }
 
 export const dbBatchUpdater = new DatabaseBatchUpdater();
+
+/**
+ * Flush pending broadcasts and database batch updates (used during graceful shutdown)
+ */
+export async function flushPendingBroadcasts() {
+  try {
+    // Clear pending broadcast timeouts
+    for (const [, pending] of pendingBroadcasts) {
+      try {
+        clearTimeout(pending.timeout);
+      } catch (e) {
+        // ignore
+      }
+    }
+    pendingBroadcasts.clear();
+
+    // Flush any pending DB batches
+    await dbBatchUpdater.flush();
+    console.log(
+      "[BroadcastOptimizer] Flushed pending broadcasts and DB batches",
+    );
+  } catch (e) {
+    console.error("[BroadcastOptimizer] Error flushing pending broadcasts:", e);
+  }
+}

@@ -21,7 +21,7 @@
     <div v-else-if="error" class="card error-card">
       <div class="error-icon">❌</div>
       <h3>{{ error }}</h3>
-      <button class="btn btn-primary" @click="$router.push('/')">
+      <button class="btn btn-primary" @click="router.push('/')">
         返回首頁
       </button>
     </div>
@@ -91,7 +91,7 @@
             <span class="btn-icon">📤</span>
             <span class="btn-text">分享結果</span>
           </button>
-          <button class="celebration-btn leave-btn" @click="$router.push('/')">
+          <button class="celebration-btn leave-btn" @click="router.push('/')">
             <span class="btn-icon">🏠</span>
             <span class="btn-text">返回首頁</span>
           </button>
@@ -232,6 +232,12 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useDynamicConfig } from "~/composables/useDynamicConfig";
+import { useShareImage } from "~/composables/useShareImage";
+import { useClipboard } from "~/composables/useClipboard";
+
 const route = useRoute();
 const router = useRouter();
 const dynamicConfig = useDynamicConfig();
@@ -261,13 +267,16 @@ const toastMessage = ref("");
 // 從 URL 取得結果 ID
 const resultId = computed(() => route.query.id as string);
 
-// 載入結果
-onMounted(async () => {
+// 加載結果的函數（提取為獨立函數以供重用）
+async function loadResult() {
   if (!resultId.value) {
     error.value = "未提供結果識別碼";
     loading.value = false;
     return;
   }
+
+  loading.value = true;
+  error.value = null;
 
   try {
     // 從 localStorage 載入結果
@@ -288,6 +297,18 @@ onMounted(async () => {
     error.value = "載入結果失敗";
   } finally {
     loading.value = false;
+  }
+}
+
+// 載入結果
+onMounted(async () => {
+  await loadResult();
+});
+
+// 監視路由參數變化，當 resultId 改變時重新加載
+watch(resultId, async (newId) => {
+  if (newId) {
+    await loadResult();
   }
 });
 

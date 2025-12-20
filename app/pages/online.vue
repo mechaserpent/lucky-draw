@@ -122,13 +122,24 @@
         <div class="controls">
           <button
             class="btn btn-lg"
-            :class="getCurrentPlayer()?.isReady ? 'btn-danger' : 'btn-success'"
+            :class="{
+              'btn-danger':
+                getCurrentPlayer()?.isReady &&
+                roomState?.gameState !== 'preflight',
+              'btn-success':
+                !getCurrentPlayer()?.isReady &&
+                roomState?.gameState !== 'preflight',
+              'btn-disabled': roomState?.gameState === 'preflight',
+            }"
             @click="toggleReady"
+            :disabled="roomState?.gameState === 'preflight'"
           >
             {{
-              getCurrentPlayer()?.isReady
-                ? "❌ " + $t("online.cancelReady")
-                : "✅ " + $t("online.imReady")
+              roomState?.gameState === "preflight"
+                ? "⏳ " + ($t("game.preparing") || "遊戲準備中...")
+                : getCurrentPlayer()?.isReady
+                  ? "❌ " + $t("online.cancelReady")
+                  : "✅ " + $t("online.imReady")
             }}
           </button>
         </div>
@@ -199,7 +210,7 @@
           <!-- 進階選項 -->
           <AdvancedSettings
             :participants="
-              roomState.players.map((p) => ({
+              roomState.players.map((p: any) => ({
                 id: p.participantId,
                 name: p.name,
               }))
@@ -265,6 +276,57 @@
       </div>
     </template>
 
+    <!-- v0.11: 遊戲準備階段 (簡化版，無倒數) -->
+    <template v-else-if="roomState?.gameState === 'preflight'">
+      <div class="card preflight-card">
+        <div class="preflight-header">
+          <h2>⏳ {{ $t("game.preparing") || "遊戲準備中..." }}</h2>
+          <p class="preflight-subtitle">
+            {{ $t("game.preflightWaiting") || "所有玩家已準備，即將開始遊戲" }}
+          </p>
+        </div>
+
+        <!-- 玩家準備狀態 -->
+        <div class="preflight-players">
+          <h3>👥 {{ $t("game.playerStatus") || "玩家狀態" }}</h3>
+          <div class="players-status-grid">
+            <div
+              v-for="player in roomState.players"
+              :key="player.id"
+              class="player-status"
+              :class="{ 'is-ready': player.isReady || player.isHost }"
+            >
+              <div class="player-avatar">{{ player.participantId }}.</div>
+              <div class="player-info">
+                <div class="player-name">{{ player.name }}</div>
+                <div class="player-ready-status">
+                  <span
+                    v-if="player.isHost || player.isReady"
+                    class="ready-badge"
+                  >
+                    ✅ {{ $t("game.ready") || "已準備" }}
+                  </span>
+                  <span v-else class="preparing-badge">
+                    ⏳ {{ $t("game.preparing") || "準備中..." }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 房主和其他玩家的不同提示 -->
+        <div v-if="isHost()" class="preflight-host-hint">
+          <p>
+            👑 {{ $t("game.hostAutoStart") || "遊戲將在倒數結束後自動開始" }}
+          </p>
+        </div>
+        <div v-else class="preflight-player-hint">
+          <p>⏳ {{ $t("game.waitingForStart") || "等待房主啟動遊戲..." }}</p>
+        </div>
+      </div>
+    </template>
+
     <!-- 遊戲進行中 -->
     <template v-else-if="roomState?.gameState === 'playing'">
       <div class="card">
@@ -275,7 +337,7 @@
             name: currentDrawerName,
           }"
           :participants="
-            roomState.players.map((p) => ({
+            roomState.players.map((p: any) => ({
               id: p.participantId,
               name: p.name,
             }))
@@ -285,7 +347,8 @@
           :can-draw="
             (isCurrentDrawer() || isHost()) &&
             !hasDrawnCurrent &&
-            !isAnimationPlaying
+            !isAnimationPlaying &&
+            !drawInProgress.value
           "
           :is-last-draw="roomState.gameState === 'complete'"
           :actual-result="lastDrawResult"
@@ -727,6 +790,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter, useRoute } from "vue-router";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -807,7 +872,6 @@ const errorMessage = ref("");
 const rouletteAnimationRef = ref<any>(null);
 
 // ✅ 動畫相關狀態（由動畫組件控制，不是 UI 邏輯驅動）
-// ❌ 已移除: isDrawing, hasDrawnCurrent, showResult, lastDrawResult（改用伺服器 isRevealed）
 const autoProgressTimeout = ref<number | null>(null);
 const drawBoxContent = ref("🎁");
 const resultGiftOwner = ref("");
@@ -816,14 +880,41 @@ let animationTimeout: NodeJS.Timeout | null = null;
 
 // 動畫狀態 - 用於同步所有客戶端的動畫播放
 const isAnimationPlaying = ref(false); // 當前是否有動畫在播放（所有人同步）
+// 當前抽獎是否正在進行（server 已 perform_draw，等待 next_drawer 或 game_complete）
+const drawInProgress = ref(false);
+
+// ✅ RouletteAnimation 組件所需的狀態變數
+const hasDrawnCurrent = computed(() => {
+  // 檢查當前抽獎者是否已經抽過獎
+  if (!roomState.value) return false;
+  const currentId =
+    roomState.value.currentDrawerId ??
+    roomState.value.drawOrder[roomState.value.currentIndex];
+  return roomState.value.results.some(
+    (r: any) => r.drawerId === currentId && r.isRevealed,
+  );
+});
+
+const isDrawing = computed(() => {
+  // 當前是否正在進行抽獎（動畫進行中或等待伺服器確認）
+  return isAnimationPlaying.value || drawInProgress.value;
+});
+
+const lastDrawResult = computed(() => {
+  // 獲取最後一個結果（用於動畫展示）
+  if (!roomState.value || roomState.value.results.length === 0) return null;
+  const lastResult =
+    roomState.value.results[roomState.value.results.length - 1];
+  return lastResult?.isRevealed ? lastResult : null; // 只顯示已揭曉的結果
+});
 
 // 定期同步機制
 const syncInterval = ref<number | null>(null);
 const heartbeatInterval = ref<number | null>(null);
 const validateInterval = ref<number | null>(null);
-const SYNC_INTERVAL_MS = 3000; // 每 3 秒同步一次
-const HEARTBEAT_INTERVAL_MS = 10000; // 每 10 秒發送心跳
-const VALIDATE_INTERVAL_MS = 5000; // 每 5 秒驗證狀態
+const SYNC_INTERVAL_MS = 500; // 每 0.5 秒同步一次
+const HEARTBEAT_INTERVAL_MS = 5000; // 每 5 秒發送心跳
+const VALIDATE_INTERVAL_MS = 500; // 每 0.5 秒驗證狀態
 
 // Pre-flight 檢查狀態
 const preflightStatus = ref<"pending" | "testing" | "passed" | "failed">(
@@ -840,21 +931,23 @@ const showConnectionTimeout = ref(false);
 // 計算屬性
 const allPlayersReady = computed(() => {
   if (!roomState.value) return false;
-  return roomState.value.players.every((p) => p.isReady || p.isHost);
+  return roomState.value.players.every((p: any) => p.isReady || p.isHost);
 });
 const canStartGame = computed(() => {
   if (!roomState.value) return false;
   return (
     roomState.value.players.length >= 2 &&
-    roomState.value.players.every((p) => p.isReady || p.isHost)
+    roomState.value.players.every((p: any) => p.isReady || p.isHost)
   );
 });
 
 const currentDrawerName = computed(() => {
   if (!roomState.value) return "-";
-  const currentId = roomState.value.drawOrder[roomState.value.currentIndex];
+  const currentId =
+    roomState.value.currentDrawerId ??
+    roomState.value.drawOrder[roomState.value.currentIndex];
   const player = roomState.value.players.find(
-    (p) => p.participantId === currentId,
+    (p: any) => p.participantId === currentId,
   );
   return player?.name || "-";
 });
@@ -870,13 +963,14 @@ function getCurrentDrawerId() {
 const formattedResults = computed(() => {
   if (!roomState.value) return [];
 
-  // 只顯示已揭曉的結果（isRevealed=true）
+  // 只顯示已揭曉的結果（isRevealed=true），使用 server 提供的名稱優先
   return roomState.value.results
     .filter((r: any) => r.isRevealed === true)
     .map((r: any) => ({
       order: r.order,
-      drawerName: getPlayerName(r.drawerId),
-      giftOwnerName: getPlayerName(r.giftOwnerId),
+      drawerName: r.drawerName || getPlayerName(r.drawerId),
+      giftOwnerName: r.giftOwnerName || getPlayerName(r.giftOwnerId),
+      performedAt: r.performedAt || null,
     }));
 });
 
@@ -889,23 +983,40 @@ const progressPlayers = computed(() => {
       roomState.value!.drawOrder[roomState.value!.currentIndex] ===
       p.participantId,
     hasDrawn: roomState.value!.results.some(
-      (r: any) => r.drawerId === p.participantId,
+      (r: any) => r.drawerId === p.participantId && r.isRevealed, // ✅ 只統計已揭曉的結果
     ),
   }));
 });
 
 // WebSocket 事件處理函數（定義在外部以便清理）
 function onWsDrawPerformed(result: any) {
-  // 🆕 result 包含 drawerId 和 giftOwnerId（伺服器計算）
+  // 🆕 result 由伺服器提供，包含 drawerId, giftOwnerId 與對應的名稱
   console.log("[Online] Draw performed, starting animation", {
     drawerId: result.drawerId,
+    drawerName: result.drawerName,
     giftOwnerId: result.giftOwnerId,
+    giftOwnerName: result.giftOwnerName,
+    isCurrentDrawer: isCurrentDrawer(),
+    isHost: isHost(),
+    roomState: roomState.value?.gameState,
   });
+
+  // 標記正在進行抽獎，禁止進入下一位或觸發新抽獎
+  drawInProgress.value = true;
+
+  // 🔧 對於所有玩家（包括非抽獎者），標記動畫開始
+  // playDrawAnimation 會在適當時機通過 triggerAnimation 正式開始動畫
+  isAnimationPlaying.value = true;
+
+  // 播放動畫並使用 server 的名稱（避免各客戶端名稱不一致）
   playDrawAnimation(result);
 }
 
 function onWsNextDrawer() {
   console.log("[Online] Next drawer event received");
+
+  // 抽獎已完成，解除鎖定
+  drawInProgress.value = false;
 
   // 重置動畫狀態（但不需要重置其他 UI 變量）
   isAnimationPlaying.value = false;
@@ -922,6 +1033,15 @@ function onWsNextDrawer() {
       console.log("[Online] RouletteAnimation reset completed");
     }
   });
+
+  // 🔧 進入下一位時進行狀態驗證，確保所有玩家狀態一致
+  setTimeout(() => {
+    try {
+      send({ type: "validate_state", payload: { state: roomState.value } });
+    } catch (e) {
+      console.warn("[Online] State validation after next_drawer failed:", e);
+    }
+  }, 300);
 
   // formattedResults 會根據新的 results[].isRevealed 自動更新
 }
@@ -947,6 +1067,9 @@ function onWsRoomDisbanded() {
 
 function onWsGameRestarted() {
   console.log("[Online] Game restarted");
+
+  // 取消抽獎進行鎖定
+  drawInProgress.value = false;
 
   // 重置動畫狀態
   isAnimationPlaying.value = false;
@@ -988,6 +1111,32 @@ function onAnimationEnd() {
     canAutoProgress: isHost() && roomState.value?.gameState === "playing",
   });
 
+  // 任一客戶端動畫完成後，通知伺服器揭曉該結果（idempotent）
+  try {
+    if (lastPlayedResult && !lastPlayedResult.isRevealed) {
+      console.log(
+        "[Online] Sending confirm_reveal for order",
+        lastPlayedResult.order,
+      );
+      send({
+        type: "confirm_reveal",
+        payload: { order: lastPlayedResult.order },
+      });
+    }
+  } catch (e) {
+    console.error("[Online] Failed to send confirm_reveal:", e);
+  }
+
+  // 🔧 動畫完成後進行狀態驗證，確保與 server 同步
+  // 延遲 500ms 等待 server 處理完 confirm_reveal
+  setTimeout(() => {
+    try {
+      send({ type: "validate_state", payload: { state: roomState.value } });
+    } catch (e) {
+      console.warn("[Online] State validation after animation failed:", e);
+    }
+  }, 500);
+
   // Auto-progress to next drawer after a delay (only if host)
   if (isHost() && roomState.value && roomState.value.gameState === "playing") {
     console.log("[Online] Setting auto-progress timeout (2s)");
@@ -1017,6 +1166,14 @@ const joinPlayerName = ref("");
 const joinRoomCode = ref("");
 const isJoiningFromUrl = ref(false);
 const isReconnecting = ref(false); // 追蹤是否正在重連
+
+// 控制組件生命週期與可取消的等待用 timer refs
+const isAlive = ref(true); // 變為 false 時應停止進行中的重試/timeout
+const mountCheckInterval = ref<number | null>(null);
+const mountConnTimeout1 = ref<number | null>(null);
+const mountConnTimeout2 = ref<number | null>(null);
+const waitForConnTimeout = ref<number | null>(null);
+const waitForJoinTimeout = ref<number | null>(null);
 
 // 生成隨機用戶名稱
 function generateRandomUsername(): string {
@@ -1103,6 +1260,8 @@ function confirmJoinRoom() {
 
   // 等待連線後加入
   const waitForConnection = () => {
+    if (!isAlive.value) return;
+
     if (isConnected.value) {
       console.log("[Join] ✅ Connection ready, sending join request");
       wsJoinRoom(
@@ -1112,7 +1271,10 @@ function confirmJoinRoom() {
       );
     } else {
       console.log("[Join] ⏳ Waiting for connection...");
-      setTimeout(waitForConnection, 100);
+      // store timeout so it can be cleared on unmount
+      waitForConnTimeout.value = window.setTimeout(() => {
+        waitForConnection();
+      }, 100);
     }
   };
   waitForConnection();
@@ -1141,28 +1303,38 @@ onMounted(async () => {
         resolve();
         return;
       }
+
       let elapsed = 0;
-      const checkInterval = setInterval(() => {
+
+      mountCheckInterval.value = window.setInterval(() => {
         elapsed += 100;
         if (isConnected.value) {
           console.log(`[Online] Connected after ${elapsed}ms`);
-          clearInterval(checkInterval);
+          if (mountCheckInterval.value) {
+            clearInterval(mountCheckInterval.value);
+            mountCheckInterval.value = null;
+          }
           connectionTimeout.value = false;
           showConnectionTimeout.value = false;
           resolve();
         }
       }, 100);
+
       // 5 秒後顯示 fallback 按鈕
-      setTimeout(() => {
+      mountConnTimeout1.value = window.setTimeout(() => {
         if (!isConnected.value) {
           console.warn("[Online] Connection timeout after 5s");
           connectionTimeout.value = true;
           showConnectionTimeout.value = true;
         }
       }, 5000);
+
       // 10 秒完全超時
-      setTimeout(() => {
-        clearInterval(checkInterval);
+      mountConnTimeout2.value = window.setTimeout(() => {
+        if (mountCheckInterval.value) {
+          clearInterval(mountCheckInterval.value);
+          mountCheckInterval.value = null;
+        }
         if (!isConnected.value) {
           console.error("[Online] Connection failed after 10s");
         }
@@ -1207,28 +1379,10 @@ onMounted(async () => {
     }
   }, 3000);
 
-  // 先清除舊的事件監聯器，再註冊新的
-  off("roomUpdated");
-  off("gameStarted");
-  off("drawPerformed");
-  off("nextDrawer");
-  off("gameComplete");
-  off("roomDisbanded");
-  off("gameRestarted");
-  off("playerDisconnected");
-  off("stateSynced");
-  off("preflightResponse");
-  off("preflightBroadcast");
-  off("stateValidated");
-  off("error");
-  off("reconnectSuccess");
-  off("reconnectFailed");
-
-  // 監聯事件
-  on("roomUpdated", () => {
+  // Register named handlers so they can be removed precisely on unmount
+  function handleRoomUpdated() {
     console.log("[Online] 🔄 Room updated event received");
     console.log("[Online] 📊 Current room state:", roomState.value);
-    // 房間狀態更新，同步設定
     if (roomState.value) {
       firstDrawerMode.value =
         roomState.value.settings.firstDrawerMode === "host"
@@ -1236,80 +1390,149 @@ onMounted(async () => {
           : roomState.value.settings.firstDrawerMode;
       firstDrawerId.value = roomState.value.settings.firstDrawerId;
       allowSpectators.value = roomState.value.settings.allowSpectators;
-
-      // 啟動定期同步（加入房間後）
       startSync();
     }
-  });
-  on("stateSynced", (room: any) => {
+  }
+
+  function handleStateSynced(room: any) {
     console.log("[Sync] State synchronized from server (SSOT):", {
       gameState: room?.gameState,
       currentIndex: room?.currentIndex,
       resultsCount: room?.results?.length,
-      revealedCount: room?.results?.filter((r: any) => r.isRevealed).length,
+      revealedCount:
+        room?.revealedCount ??
+        room?.results?.filter((r: any) => r.isRevealed).length,
     });
 
-    // ✅ 直接更新 roomState（SSOT）
-    // formattedResults computed 會自動根據 results[].isRevealed 重新計算
     if (roomState.value) {
       roomState.value = room;
     }
+  }
 
-    // ✅ 無需手動修改 UI 狀態變量（它們已被移除或由動畫組件管理）
-  });
-
-  on("preflightResponse", (payload: any) => {
+  function handlePreflightResponse(payload: any) {
     console.log(
       "[Preflight] Received response for test",
       payload.testId,
-      "from",
+      "respondingPlayerId:",
+      payload.respondingPlayerId,
+      "(odId:",
       payload.odId,
+      ")",
     );
-    if (payload.testId === preflightTestId.value && payload.odId) {
-      // 找到對應的玩家 ID 並標記
-      const player = roomState.value?.players.find(
-        (p) => p.id === payload.odId,
-      );
-      if (player) {
-        preflightResults.value.set(player.id, true);
-        console.log(`[Preflight] Player ${player.name} responded successfully`);
+    if (payload.testId === preflightTestId.value) {
+      // 優先使用 respondingPlayerId，備用 odId
+      const responderIdToRecord = payload.respondingPlayerId || payload.odId;
+
+      if (responderIdToRecord) {
+        const player = roomState.value?.players.find(
+          (p: any) => p.id === responderIdToRecord,
+        );
+        if (player) {
+          preflightResults.value.set(player.id, true);
+          console.log(
+            `[Preflight] Response recorded for player: ${player.name} (id: ${player.id})`,
+          );
+        } else {
+          // 備用：如果找不到玩家，直接記錄該ID
+          preflightResults.value.set(responderIdToRecord, true);
+          console.log(
+            `[Preflight] Response recorded for id ${responderIdToRecord} (player not found in list)`,
+          );
+        }
       } else {
-        // 可能是自己的回應（使用當前 playerId）
-        preflightResults.value.set(playerId.value, true);
-        console.log(`[Preflight] Self response received`);
+        console.warn(
+          `[Preflight] Response has no respondingPlayerId or odId, ignoring`,
+        );
       }
     }
-  });
-  on("preflightBroadcast", (payload: any) => {
-    console.log("[Preflight] Broadcast received from", payload.fromOdId);
-    // 其他玩家的測試訊息，標記該玩家已連線
+  }
+
+  function handlePreflightBroadcast(payload: any) {
+    console.log(
+      "[Preflight] Broadcast received from odId:",
+      payload.fromOdId,
+      "respondingPlayerId:",
+      payload.respondingPlayerId,
+    );
     if (payload.testId === preflightTestId.value) {
-      preflightResults.value.set(payload.fromOdId, true);
+      // 優先使用 respondingPlayerId，備用 fromOdId
+      const responderIdToRecord =
+        payload.respondingPlayerId || payload.fromOdId;
+
+      if (responderIdToRecord) {
+        preflightResults.value.set(responderIdToRecord, true);
+        console.log(
+          `[Preflight] Broadcast recorded for id ${responderIdToRecord}`,
+        );
+      } else {
+        console.warn(
+          `[Preflight] Broadcast has no respondingPlayerId or fromOdId, ignoring`,
+        );
+      }
     }
-  });
-  on("stateValidated", (payload: any) => {
+  }
+
+  function handleStateValidated(payload: any) {
     console.log("[Validate] Validation result (SSOT):", {
       isValid: payload.isValid,
       validation: payload.validation,
       resultsCount: payload.correctState?.results?.length,
-      revealedCount: payload.correctState?.results?.filter(
-        (r: any) => r.isRevealed,
-      ).length,
+      revealedCount:
+        payload.correctState?.revealedCount ??
+        payload.correctState?.results?.filter((r: any) => r.isRevealed).length,
     });
 
     if (!payload.isValid) {
-      console.warn("[Validate] State mismatch detected, correcting...");
-      displayError("⚠️ 狀態不一致已自動修正");
+      console.warn(
+        "[Validate] State mismatch detected, correcting with server state:",
+        {
+          mismatch: payload.validation,
+          oldState: {
+            gameState: roomState.value?.gameState,
+            currentIndex: roomState.value?.currentIndex,
+            resultsCount: roomState.value?.results?.length,
+            playersCount: roomState.value?.players?.length,
+          },
+          newState: {
+            gameState: payload.correctState?.gameState,
+            currentIndex: payload.correctState?.currentIndex,
+            resultsCount: payload.correctState?.results?.length,
+            playersCount: payload.correctState?.players?.length,
+          },
+        },
+      );
 
-      // ✅ 直接用伺服器狀態覆蓋（SSOT）
+      // 🔧 使用 server 的狀態作為準 (SSOT)
       roomState.value = payload.correctState;
 
-      // formattedResults 會自動根據 results[].isRevealed 重新計算
-      // 無需手動修改 UI 狀態變量
+      // 顯示非侵入性警告
+      displayError("⚠️ 遊戲狀態已自動同步");
     }
-  });
+  }
 
-  on("gameStarted", () => {
+  function handleResultRevealed(payload: any) {
+    console.log("[Online] Result revealed event received", payload);
+    // server authoritative: update room and unlock draw
+    if (payload?.room) {
+      roomState.value = payload.room;
+    }
+
+    // unlock draw UI
+    drawInProgress.value = false;
+
+    // cleanup lastPlayedResult if matches
+    if (
+      lastPlayedResult &&
+      payload?.result &&
+      lastPlayedResult.order === payload.result.order
+    ) {
+      lastPlayedResult = null;
+    }
+
+    // formattedResults will update because roomState changed
+  }
+
+  function handleGameStarted() {
     console.log("[Online] Game started event received");
     console.log("[Online] Room state after game start:", {
       gameState: roomState.value?.gameState,
@@ -1318,7 +1541,6 @@ onMounted(async () => {
       playersCount: roomState.value?.players.length,
     });
 
-    // 遊戲開始，重置動畫狀態
     isAnimationPlaying.value = false;
     animationInProgress = false;
     if (animationTimeout) {
@@ -1328,32 +1550,27 @@ onMounted(async () => {
     drawBoxContent.value = "🎁";
     hasAddedHistory.value = false;
 
-    // 重置 RouletteAnimation 組件狀態
     nextTick(() => {
       if (rouletteAnimationRef.value?.reset) {
         rouletteAnimationRef.value.reset();
       }
     });
 
-    // 確保同步正在運行
     startSync();
-
-    // 啟動狀態驗證
     startValidation();
 
-    // 立即請求一次完整狀態同步，確保所有客戶端狀態一致
     setTimeout(() => {
       console.log("[Online] Forcing state sync after game start");
       syncState();
     }, 500);
-  });
+  }
 
-  on("drawPerformed", (result: any) => {
+  function handleDrawPerformed(result: any) {
     console.log("[Online] Draw performed event received:", result);
     onWsDrawPerformed(result);
-  });
+  }
 
-  on("nextDrawer", () => {
+  function handleNextDrawer() {
     console.log("[Online] Next drawer event received");
     console.log("[Online] New room state:", {
       gameState: roomState.value?.gameState,
@@ -1363,26 +1580,22 @@ onMounted(async () => {
       resultsCount: roomState.value?.results?.length,
     });
     onWsNextDrawer();
-  });
+  }
 
-  on("gameComplete", () => {
+  function handleGameComplete() {
     console.log("[Online] Game complete event received");
     console.log(
       "[Online] Final results count:",
       roomState.value?.results?.length,
     );
-    // 停止驗證和同步
     stopSync();
     onWsGameComplete();
-  });
+  }
 
-  on("roomDisbanded", onWsRoomDisbanded);
-  on("gameRestarted", onWsGameRestarted);
-
-  on("playerDisconnected", (payload: any) => {
+  function handlePlayerDisconnected(payload: any) {
     if (payload.hostTransferred) {
       const newHost = roomState.value?.players.find(
-        (p) => p.id === payload.newHostId,
+        (p: any) => p.id === payload.newHostId,
       );
       if (newHost) {
         displayError(`⚠️ 原主機已斷線，主機權限已移交給 ${newHost.name}`);
@@ -1390,11 +1603,9 @@ onMounted(async () => {
     } else if (payload.isHost) {
       displayError("⚠️ 主機已斷線，但房間保留，您可以繼續遊戲");
     }
-  });
-  on("error", onWsError);
+  }
 
-  // 重連事件處理
-  on("reconnectSuccess", (payload: any) => {
+  function handleReconnectSuccess(payload: any) {
     isReconnecting.value = false;
     console.log("[Online] Reconnect success", {
       roomId: payload?.room?.id,
@@ -1406,41 +1617,55 @@ onMounted(async () => {
     });
     router.replace({ query: {} });
 
-    // 重連成功後重置動畫狀態
     isAnimationPlaying.value = false;
     animationInProgress = false;
 
-    // 重置 RouletteAnimation 組件狀態（讓它根據 actual-result 顯示正確內容）
     nextTick(() => {
       if (rouletteAnimationRef.value?.reset) {
         rouletteAnimationRef.value.reset();
       }
     });
 
-    // 重連成功後啟動同步
     startSync();
 
-    // 如果遊戲進行中，啟動驗證
     if (roomState.value?.gameState === "playing") {
       startValidation();
     }
 
-    // 延遲請求完整狀態同步
     setTimeout(() => {
       console.log("[Online] Forcing state sync after reconnect");
       syncState();
     }, 300);
-  });
-  on("reconnectFailed", (message: string) => {
+  }
+
+  function handleReconnectFailed(message: string) {
     isReconnecting.value = false;
     displayError(message || t("error.reconnectFailed"));
     // 延遲後跳轉首頁
-    setTimeout(() => {
+    waitForJoinTimeout.value = window.setTimeout(() => {
       if (!roomState.value) {
         router.push("/");
       }
     }, 2000);
-  });
+  }
+
+  // Register handlers
+  on("roomUpdated", handleRoomUpdated);
+  on("stateSynced", handleStateSynced);
+  on("preflightResponse", handlePreflightResponse);
+  on("preflightBroadcast", handlePreflightBroadcast);
+  on("stateValidated", handleStateValidated);
+  on("gameStarted", handleGameStarted);
+  on("drawPerformed", handleDrawPerformed);
+  on("resultRevealed", handleResultRevealed);
+  on("nextDrawer", handleNextDrawer);
+  on("gameComplete", handleGameComplete);
+  on("roomDisbanded", onWsRoomDisbanded);
+  on("gameRestarted", onWsGameRestarted);
+  on("playerDisconnected", handlePlayerDisconnected);
+  on("error", onWsError);
+  on("reconnectSuccess", handleReconnectSuccess);
+  on("reconnectFailed", handleReconnectFailed);
 });
 
 onUnmounted(() => {
@@ -1453,21 +1678,29 @@ onUnmounted(() => {
     autoProgressTimeout.value = null;
   }
 
-  // 清除事件監聯器
-  off("roomUpdated");
-  off("gameStarted");
-  off("drawPerformed");
-  off("nextDrawer");
-  off("gameComplete");
-  off("roomDisbanded");
-  off("gameRestarted");
-  off("stateSynced");
-  off("preflightResponse");
-  off("preflightBroadcast");
-  off("stateValidated");
-  off("error");
-  off("reconnectSuccess");
-  off("reconnectFailed");
+  // 清除動畫計時器
+  if (animationTimeout) {
+    clearTimeout(animationTimeout);
+    animationTimeout = null;
+  }
+
+  // 清除已註冊的具名事件處理器（精準移除）
+  off("roomUpdated", handleRoomUpdated);
+  off("stateSynced", handleStateSynced);
+  off("preflightResponse", handlePreflightResponse);
+  off("preflightBroadcast", handlePreflightBroadcast);
+  off("stateValidated", handleStateValidated);
+  off("gameStarted", handleGameStarted);
+  off("drawPerformed", handleDrawPerformed);
+  off("resultRevealed", handleResultRevealed);
+  off("nextDrawer", handleNextDrawer);
+  off("gameComplete", handleGameComplete);
+  off("roomDisbanded", onWsRoomDisbanded);
+  off("gameRestarted", onWsGameRestarted);
+  off("playerDisconnected", handlePlayerDisconnected);
+  off("error", onWsError);
+  off("reconnectSuccess", handleReconnectSuccess);
+  off("reconnectFailed", handleReconnectFailed);
 });
 
 // 顯示錯誤提示
@@ -1558,7 +1791,7 @@ async function runPreflightCheck(): Promise<boolean> {
   const startTime = Date.now();
 
   // 虛擬玩家和已連線玩家立即標記為通過
-  roomState.value.players.forEach((player) => {
+  roomState.value.players.forEach((player: any) => {
     if (player.isVirtual || player.id === playerId.value) {
       preflightResults.value.set(player.id, true);
       console.log(
@@ -1570,7 +1803,7 @@ async function runPreflightCheck(): Promise<boolean> {
   // 等待真實玩家回應
   while (Date.now() - startTime < timeout) {
     // 檢查是否所有玩家都已回應
-    const allResponded = roomState.value.players.every((player) =>
+    const allResponded = roomState.value.players.every((player: any) =>
       preflightResults.value.has(player.id),
     );
 
@@ -1586,8 +1819,8 @@ async function runPreflightCheck(): Promise<boolean> {
 
   // 超時 - 靜默失敗
   const missingPlayers = roomState.value.players
-    .filter((p) => !preflightResults.value.has(p.id))
-    .map((p) => p.name);
+    .filter((p: any) => !preflightResults.value.has(p.id))
+    .map((p: any) => p.name);
 
   console.warn(
     "[Preflight] Timeout - missing responses from:",
@@ -1639,7 +1872,7 @@ function goHome() {
 // 獲取玩家名稱
 function getPlayerName(participantId: number): string {
   const player = roomState.value?.players.find(
-    (p) => p.participantId === participantId,
+    (p: any) => p.participantId === participantId,
   );
   return player?.name || "?";
 }
@@ -1713,8 +1946,7 @@ function handleAddPlayer() {
 
 // 進階設定相關函數
 function handleToggleAdvanced() {
-  const config = useDynamicConfig();
-  if (config.settings.value.passwordProtection) {
+  if (dynamicConfig.settings.value.passwordProtection) {
     showAdvancedModal.value = true;
   } else {
     showAdvanced.value = !showAdvanced.value;
@@ -1768,10 +2000,6 @@ async function handleStartGame() {
   isStartingGame.value = true;
 
   try {
-    // Pre-flight 靜默檢查（背景驗證，不阻擋遊戲）
-    console.log("[Game] Running silent pre-flight check...");
-    await runPreflightCheck(); // 靜默執行，總是返回 true
-
     console.log("[Game] Starting game");
 
     hasAddedHistory.value = false;
@@ -1922,13 +2150,20 @@ function saveRoomSettings() {
 
 // 防止重複觸發抽獎動畫
 let animationInProgress = false;
+let lastPlayedResult: any = null; // record the last result used for animation (so we can confirm reveal on animation end)
 
 // 播放抽獎動畫 - 所有客戶端都會執行這個函數
 function playDrawAnimation(result: any) {
   console.log("[Online] playDrawAnimation called", {
     drawerId: result.drawerId,
+    drawerName: result.drawerName,
     giftOwnerId: result.giftOwnerId,
+    giftOwnerName: result.giftOwnerName,
     animationInProgress,
+    isAnimationPlaying: isAnimationPlaying.value,
+    rouletteAnimationRefAvailable: !!rouletteAnimationRef.value,
+    rouletteAnimationRefState: (rouletteAnimationRef.value as any)?.state
+      ?.value,
   });
 
   // 防止重複觸發
@@ -1943,8 +2178,14 @@ function playDrawAnimation(result: any) {
   animationInProgress = true;
   isAnimationPlaying.value = true;
 
-  const drawerName = getPlayerName(result.drawerId);
-  const giftOwnerName = getPlayerName(result.giftOwnerId);
+  // 記錄這次播放的結果，動畫結束時會用它發送 confirm_reveal
+  lastPlayedResult = result;
+
+  // 優先使用 server 提供的名稱，避免 client 端不一致
+  const drawerName = result.drawerName || getPlayerName(result.drawerId);
+  const giftOwnerName =
+    result.giftOwnerName || getPlayerName(result.giftOwnerId);
+
   drawBoxContent.value = giftOwnerName.charAt(0);
   resultGiftOwner.value = giftOwnerName;
 
@@ -1956,15 +2197,37 @@ function playDrawAnimation(result: any) {
   // 觸發所有客戶端的動畫
   nextTick(() => {
     setTimeout(() => {
-      if (rouletteAnimationRef.value?.triggerAnimation) {
-        console.log("[Online] Triggering RouletteAnimation with result:", {
-          drawerName,
-          giftOwnerName,
-        });
-        rouletteAnimationRef.value.triggerAnimation({
-          drawerName,
-          giftOwnerName,
-        });
+      if (rouletteAnimationRef.value) {
+        const currentState = (rouletteAnimationRef.value as any)?.state?.value;
+        console.log(
+          "[Online] Before triggering animation, current state:",
+          currentState,
+        );
+
+        // 🔧 強制重置組件，確保狀態回到 "before"
+        // 防止上一次動畫的狀態殘留導致本次動畫卡住
+        if (rouletteAnimationRef.value?.reset) {
+          rouletteAnimationRef.value.reset();
+          console.log(
+            "[Online] RouletteAnimation forcefully reset before new animation",
+          );
+        }
+
+        if (rouletteAnimationRef.value?.triggerAnimation) {
+          console.log("[Online] Triggering RouletteAnimation with result:", {
+            drawerName,
+            giftOwnerName,
+            isCurrentDrawer: isCurrentDrawer(),
+          });
+          rouletteAnimationRef.value.triggerAnimation({
+            drawerName,
+            giftOwnerName,
+          });
+        } else {
+          console.warn("[Online] triggerAnimation method not available");
+          animationInProgress = false;
+          isAnimationPlaying.value = false;
+        }
       } else {
         console.warn("[Online] RouletteAnimation ref not available");
         // 如果組件不可用，立即清理狀態
@@ -2016,7 +2279,7 @@ function celebrate() {
 
   // 保存歷史紀錄和結果
   if (roomState.value && roomState.value.results.length > 0) {
-    const resultsData = roomState.value.results.map((r) => ({
+    const resultsData = roomState.value.results.map((r: any) => ({
       order: r.order,
       drawerName: getPlayerName(r.drawerId),
       giftOwnerName: getPlayerName(r.giftOwnerId),
@@ -3457,6 +3720,193 @@ function celebrate() {
 .waiting-hint p {
   margin: 0;
   font-weight: 600;
+}
+
+/* v0.10: Preflight 準備階段樣式 */
+.preflight-card {
+  background: linear-gradient(135deg, #1a472a 0%, #2d5a3f 100%);
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  animation: preflight-glow 2s ease-in-out infinite;
+}
+
+@keyframes preflight-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.4);
+  }
+}
+
+.preflight-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.preflight-header h2 {
+  color: #ffd700;
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+}
+
+.preflight-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.preflight-countdown {
+  text-align: center;
+  margin: 30px 0;
+}
+
+.countdown-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-number {
+  font-size: 4rem;
+  font-weight: bold;
+  color: #ffd700;
+  line-height: 1;
+  animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+@keyframes countdown-pulse {
+  0%,
+  50% {
+    transform: scale(1);
+  }
+  75% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.countdown-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  margin-top: 10px;
+}
+
+.preflight-players {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 12px;
+  margin: 30px 0;
+}
+
+.preflight-players h3 {
+  margin: 0 0 15px 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+}
+
+.players-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.player-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  opacity: 0.7;
+}
+
+.player-status.is-ready {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: rgba(76, 175, 80, 0.4);
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+.player-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c41e3a, #8b1528);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
+  color: white;
+}
+
+.player-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-name {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
+.player-ready-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.ready-badge {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.preparing-badge {
+  color: rgba(255, 193, 7, 0.8);
+  opacity: 0.8;
+}
+
+.preflight-host-hint,
+.preflight-player-hint {
+  background: rgba(255, 215, 0, 0.1);
+  border-left: 4px solid #ffd700;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.preflight-host-hint p,
+.preflight-player-hint p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .countdown-number {
+    font-size: 3rem;
+  }
+
+  .players-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preflight-header h2 {
+    font-size: 1.5rem;
+  }
 }
 
 @keyframes pulse {

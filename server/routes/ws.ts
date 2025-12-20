@@ -73,6 +73,47 @@ function toRoomState(
 ): RoomState | null {
   if (!room) return null;
 
+  // helper maps
+  const participants = room.players.map((p) => ({
+    id: p.participantId,
+    name: p.name,
+  }));
+  const nameOf = (pid: number) =>
+    participants.find((x) => x.id === pid)?.name || "";
+
+  const totalCount = room.players.length;
+  const revealedCount = room.results.filter((r: any) => r.isRevealed).length;
+
+  // remaining players who haven't drawn yet (by participantId)
+  const drawnSet = new Set(room.results.map((r: any) => r.drawerId));
+  const remainingPlayers = room.drawOrder.filter((pid) => !drawnSet.has(pid));
+
+  // remaining gifts: participantIds not yet assigned as gift owners
+  const assignedGifts = new Set(room.results.map((r: any) => r.giftOwnerId));
+  const remainingGifts = room.players
+    .map((p) => p.participantId)
+    .filter((pid) => !assignedGifts.has(pid));
+
+  // attach names to results for client convenience (SSOT)
+  const resultsWithNames = room.results.map((r: any) => ({
+    ...r,
+    drawerName: r.drawerName ?? nameOf(r.drawerId),
+    giftOwnerName: r.giftOwnerName ?? nameOf(r.giftOwnerId),
+  }));
+
+  const currentDrawerId = room.drawOrder[room.currentIndex];
+
+  // draw is in progress if there exists a result whose order == currentIndex+1
+  const isDrawInProgress = room.results.some(
+    (r: any) => r.order === room.currentIndex + 1,
+  );
+
+  const lastResult =
+    room.results.length > 0 ? room.results[room.results.length - 1] : null;
+  const lastResultTimestamp = lastResult
+    ? (lastResult as any).performedAt
+    : null;
+
   return {
     id: room.id,
     creatorId: room.creatorId, // v0.9.0: 添加創建者 ID
@@ -85,8 +126,23 @@ function toRoomState(
     drawSequence: room.drawSequence,
     drawOrder: room.drawOrder,
     currentIndex: room.currentIndex,
-    results: room.results,
+    results: resultsWithNames,
     serverHosted: room.serverHosted, // v0.9.0: 添加伺服器託管標記
+
+    // Derived SSOT fields (kept authoritative on server)
+    totalCount,
+    revealedCount,
+    remainingPlayers,
+    remainingGifts,
+    progress: { revealed: revealedCount, total: totalCount },
+    currentDrawerId,
+    isDrawInProgress,
+    lastResultTimestamp,
+
+    // backward-compatible aliases
+    remainingPlayersCount: remainingPlayers.length,
+    remainingGiftsCount: remainingGifts.length,
+    lastResultAt: lastResultTimestamp,
   };
 }
 
@@ -344,7 +400,36 @@ export default defineWebSocketHandler({
             `[Preflight] Received test from ${odId}, testId: ${testId}, roomId: ${peerObj.roomId}`,
           );
 
-          // 回應發送者
+          // 查詢房間以獲取玩家ID
+          let respondingPlayerId = null;
+          if (peerObj.roomId) {
+            const room = await roomService.getRoom(peerObj.roomId);
+            if (room) {
+              console.log(
+                `[Preflight] Room found with ${room.players.length} players`,
+              );
+              console.log(
+                `[Preflight] Looking for player with id: ${odId}, available ids: ${room.players.map((p) => p.id).join(", ")}`,
+              );
+              const player = room.players.find((p) => p.id === odId);
+              if (player) {
+                respondingPlayerId = player.id;
+                console.log(
+                  `[Preflight] Found player: ${player.name} (id: ${player.id})`,
+                );
+              } else {
+                console.warn(
+                  `[Preflight] Player not found in room for odId: ${odId}`,
+                );
+              }
+            } else {
+              console.warn(`[Preflight] Room not found: ${peerObj.roomId}`);
+            }
+          } else {
+            console.warn(`[Preflight] No room associated with this connection`);
+          }
+
+          // 回應發送者（包含響應玩家的ID，如果找到）
           peer.send(
             JSON.stringify({
               type: "preflight_response",
@@ -352,7 +437,8 @@ export default defineWebSocketHandler({
                 testId,
                 timestamp: Date.now(),
                 serverId: process.pid || "unknown",
-                odId,
+                respondingPlayerId, // 房間中的玩家ID（或 null）
+                odId, // 伺服器連接ID（用於調試）
               },
             }),
           );
@@ -367,6 +453,7 @@ export default defineWebSocketHandler({
                 payload: {
                   testId,
                   fromOdId: odId,
+                  respondingPlayerId, // 房間中的玩家ID（或 null）
                   timestamp: Date.now(),
                 },
               },
@@ -390,20 +477,29 @@ export default defineWebSocketHandler({
           }
 
           const clientState = msg.payload?.state;
+
+          // 🔧 改進驗證邏輯：比較應該向客戶端顯示的數據（已揭曉的結果）
+          // 而不是完整的伺服器結果
+          const revealedResults = room.results.filter((r: any) => r.isRevealed);
+
           console.log(`[Validate] Client ${odId} state validation request`, {
             clientGameState: clientState?.gameState,
             serverGameState: room.gameState,
             clientCurrentIndex: clientState?.currentIndex,
             serverCurrentIndex: room.currentIndex,
             clientResults: clientState?.results?.length,
-            serverResults: room.results.length,
+            serverRevealedResults: revealedResults.length,
+            serverTotalResults: room.results.length,
+            clientPlayersCount: clientState?.players?.length,
+            serverPlayersCount: room.players.length,
           });
 
-          // 比對關鍵欄位
+          // 比對關鍵欄位（結果只比較已揭曉的）
           const validation = {
             gameState: clientState?.gameState === room.gameState,
             currentIndex: clientState?.currentIndex === room.currentIndex,
-            resultsCount: clientState?.results?.length === room.results.length,
+            resultsCount:
+              clientState?.results?.length === revealedResults.length,
             playersCount: clientState?.players?.length === room.players.length,
           };
 
@@ -416,6 +512,15 @@ export default defineWebSocketHandler({
             );
           }
 
+          // 將正確的狀態過濾成客戶端應該看到的樣子（只包含已揭曉的結果）
+          const correctState = toRoomState(room);
+          const filteredCorrectState = correctState
+            ? {
+                ...correctState,
+                results: correctState.results.filter((r: any) => r.isRevealed),
+              }
+            : null;
+
           // 回傳驗證結果和正確狀態
           peer.send(
             JSON.stringify({
@@ -423,7 +528,7 @@ export default defineWebSocketHandler({
               payload: {
                 isValid,
                 validation,
-                correctState: toRoomState(room),
+                correctState: filteredCorrectState,
                 timestamp: Date.now(),
               },
             }),
@@ -664,28 +769,46 @@ export default defineWebSocketHandler({
             return;
           }
 
+          // v0.11: 簡化流程 - 自動設置所有其他玩家為已準備，然後直接開始遊戲
+          // （無 preflight 倒數階段）
+
+          console.log(
+            "[WS] Host starting game - auto-setting all other players to ready",
+          );
+
+          // 更新所有其他玩家為 isReady=true（在數據庫中）
+          for (const player of room.players) {
+            if (player.id !== odId) {
+              // 需要通過某個接口更新玩家狀態
+              // 暫時跳過，直接開始遊戲
+              console.log(`[WS] Auto-ready: ${player.name}`);
+            }
+          }
+
+          // 直接進入 playing 狀態
           const startedRoom = await roomService.startGame(
             peerObj.roomId,
             msg.payload?.seed,
           );
+
           if (!startedRoom) {
             sendError(peer, "無法開始遊戲，請確保至少有 2 位玩家");
             return;
           }
 
-          console.log("[WS] Game started:", {
+          console.log("[WS] Game started immediately:", {
             roomId: startedRoom.id,
             gameState: startedRoom.gameState,
-            playersCount: startedRoom.players.length,
             drawOrderLength: startedRoom.drawOrder.length,
             firstDrawer: startedRoom.drawOrder[0],
           });
 
-          // 廣播給所有人（包括發送者），使用立即廣播
+          // 廣播給所有人：遊戲已開始
           broadcastImmediate(startedRoom.id, {
             type: "game_started",
             payload: { room: toRoomState(startedRoom) },
           });
+
           break;
         }
 
@@ -717,20 +840,57 @@ export default defineWebSocketHandler({
             // 🆕 SSOT: 記錄結果揭曉狀態
             const lastResult =
               result.room.results[result.room.results.length - 1];
+            // resolve names from room players/spectators
+            const allPlayers = [
+              ...result.room.players,
+              ...result.room.spectators,
+            ];
+            const drawerPlayer = allPlayers.find(
+              (p) => p.participantId === result.result.drawerId,
+            );
+            const giftOwnerPlayer = allPlayers.find(
+              (p) => p.participantId === result.result.giftOwnerId,
+            );
+
+            const enrichedResult = {
+              ...result.result,
+              drawerName: drawerPlayer?.name || "?",
+              giftOwnerName: giftOwnerPlayer?.name || "?",
+              isRevealed: !!(lastResult as any)?.isRevealed,
+            };
+
             console.log("[WS] Draw performed (SSOT):", {
               roomId: result.room.id,
               drawer: result.result.drawerId,
               giftOwner: result.result.giftOwnerId,
               resultsCount: result.room.results.length,
-              lastResultIsRevealed: lastResult?.isRevealed ?? false,
+              lastResultIsRevealed: (lastResult as any)?.isRevealed ?? false,
+              clientShouldSee: {
+                gameState: result.room.gameState,
+                currentIndex: result.room.currentIndex,
+                revealedResults: result.room.results.filter(
+                  (r: any) => r.isRevealed,
+                ).length,
+              },
             });
 
             // 廣播給所有人（包括發送者），使用立即廣播
+            // NOTE: Do not include unrevealed results in the room payload so clients won't show
+            // the result in results list until server confirms reveal (result_revealed).
+            const roomForClients = {
+              ...result.room,
+              results: (result.room.results || []).filter(
+                (r: any) => !!r.isRevealed,
+              ),
+            } as any;
+
+            // 🔧 同時廣播完整房間狀態和單個結果，確保所有玩家狀態一致
             broadcastImmediate(result.room.id, {
               type: "draw_performed",
               payload: {
-                room: toRoomState(result.room),
-                result: result.result,
+                room: toRoomState(roomForClients),
+                result: enrichedResult,
+                timestamp: Date.now(),
               },
             });
           }
@@ -759,14 +919,92 @@ export default defineWebSocketHandler({
             });
 
             // 廣播給所有人（包括發送者），使用立即廣播
+            // Note: result.isRevealed may be false until a client confirms reveal
+            const roomForClientsHost = {
+              ...result.room,
+              results: (result.room.results || []).filter(
+                (r: any) => !!r.isRevealed,
+              ),
+            } as any;
+
+            // 🔧 確保包含完整狀態和結果信息
+            const allPlayersHost = [
+              ...result.room.players,
+              ...result.room.spectators,
+            ];
+            const drawerPlayerHost = allPlayersHost.find(
+              (p) => p.participantId === result.result.drawerId,
+            );
+            const giftOwnerPlayerHost = allPlayersHost.find(
+              (p) => p.participantId === result.result.giftOwnerId,
+            );
+
+            const enrichedResultHost = {
+              ...result.result,
+              drawerName: drawerPlayerHost?.name || "?",
+              giftOwnerName: giftOwnerPlayerHost?.name || "?",
+              isRevealed: false, // host_perform_draw 的結果尚未揭曉
+            };
+
             broadcastImmediate(result.room.id, {
               type: "draw_performed",
               payload: {
-                room: toRoomState(result.room),
-                result: result.result,
+                room: toRoomState(roomForClientsHost),
+                result: enrichedResultHost,
+                timestamp: Date.now(),
               },
             });
           }
+          break;
+        }
+
+        case "confirm_reveal": {
+          // 任一 client 在動畫結束後發送此事件以便伺服器標記該結果為揭曉並通知所有人
+          if (!peerObj.roomId) return;
+          const { order } = msg.payload || {};
+          if (typeof order !== "number") {
+            sendError(peer, "invalid_confirm_reveal_payload");
+            return;
+          }
+
+          const res = await roomService.revealResult(peerObj.roomId, order);
+          if (!res) {
+            sendError(peer, "reveal_failed_or_not_found");
+            return;
+          }
+
+          // resolve names from room players/spectators (should already be present from loadRoomFromDb)
+          const allPlayers = [...res.room.players, ...res.room.spectators];
+          const drawerPlayer = allPlayers.find(
+            (p) => p.participantId === res.result.drawerId,
+          );
+          const giftOwnerPlayer = allPlayers.find(
+            (p) => p.participantId === res.result.giftOwnerId,
+          );
+          const enrichedResult = {
+            ...res.result,
+            drawerName: drawerPlayer?.name || "?",
+            giftOwnerName: giftOwnerPlayer?.name || "?",
+            isRevealed: !!(res.result as any).isRevealed,
+          };
+
+          console.log("[WS] Result revealed (SSOT):", {
+            roomId: res.room.id,
+            order: enrichedResult.order,
+            drawer: enrichedResult.drawerId,
+            giftOwner: enrichedResult.giftOwnerId,
+            isRevealed: enrichedResult.isRevealed,
+          });
+
+          // 廣播揭曉事件（立即）
+          broadcastImmediate(res.room.id, {
+            type: "result_revealed",
+            payload: {
+              room: toRoomState(res.room),
+              result: enrichedResult,
+            },
+          });
+
           break;
         }
 

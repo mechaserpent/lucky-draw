@@ -331,7 +331,7 @@ function prepareRouletteItemsWithResult(
   }
 
   items[winnerIdx].isWinner = true;
-  items[winnerIdx].isRare = true;
+  // 保持初始隨機生成的 isRare 值，不覆蓋為 true
 
   extendedItems.value = items;
 }
@@ -440,7 +440,7 @@ function prepareRouletteItems() {
   }
 
   items[winnerIdx].isWinner = true;
-  items[winnerIdx].isRare = true;
+  // 保持初始隨機生成的 isRare 值，不覆蓋為 true
 
   extendedItems.value = items;
 }
@@ -489,19 +489,27 @@ defineExpose({
       hasResult: !!result,
       propsActualResult: props.actualResult,
       usedResult: actualResult,
+      currentState: state.value,
     });
 
-    if (state.value !== "drawing") {
-      showWinnerHighlight.value = false;
-      trackStyle.value = {};
-      state.value = "drawing";
-      emit("animation-start");
-      document.body.classList.add("animation-paused");
-      nextTick(() => {
-        // 使用傳入的結果或 props 中的結果
-        performDrawAnimationWithResult(actualResult);
-      });
+    // 🔧 改進邏輯：如果已經在繪圖狀態，直接忽略（防止重複觸發）
+    // 否則進入繪圖狀態並開始動畫
+    if (state.value === "drawing") {
+      console.log(
+        "[RouletteAnimation] Already in drawing state, ignoring duplicate trigger",
+      );
+      return;
     }
+
+    showWinnerHighlight.value = false;
+    trackStyle.value = {};
+    state.value = "drawing";
+    emit("animation-start");
+    document.body.classList.add("animation-paused");
+    nextTick(() => {
+      // 使用傳入的結果或 props 中的結果
+      performDrawAnimationWithResult(actualResult);
+    });
   },
 });
 </script>
