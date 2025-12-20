@@ -231,6 +231,12 @@
         >
       </div>
 
+      <div class="repo-link" v-if="appRepo">
+        <a :href="appRepo" target="_blank" rel="noopener noreferrer"
+          >🔗 {{ $t("appSettings.about.viewRepo") }}</a
+        >
+      </div>
+
       <div class="copyright">
         <p>{{ $t("appSettings.about.copyright", { year: currentYear }) }}</p>
         <p class="small">{{ $t("appSettings.about.allRightsReserved") }}</p>
@@ -383,6 +389,7 @@
 
 <script setup lang="ts">
 import { useAppVersion } from "~/composables/useAppVersion";
+import { useSiteConfig } from "~/composables/useSiteConfig";
 const props = defineProps<{
   readonly?: boolean;
 }>();
@@ -437,6 +444,7 @@ function handlePasswordProtectionToggle() {
 
 // 應用資訊
 const { version: appVersion, buildLabel } = useAppVersion();
+const { appRepo } = useSiteConfig();
 const currentYear = new Date().getFullYear();
 
 // 社交登入（預留）
@@ -746,6 +754,26 @@ onMounted(() => {
 .legal-links a:hover {
   color: #fff;
   text-decoration: underline;
+}
+
+.repo-link {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.repo-link a {
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.15s;
+}
+
+.repo-link a:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .copyright {

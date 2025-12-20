@@ -92,6 +92,7 @@
       "build": "Build",
       "termsOfService": "Terms of Service",
       "privacyPolicy": "Privacy Policy",
+      "viewRepo": "View source on GitHub",
       "copyright": "© {year} maverick.hlc",
       "allRightsReserved": "All rights reserved."
     },

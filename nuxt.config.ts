@@ -35,6 +35,11 @@ export default defineNuxtConfig({
       appVersion,
       buildNumber,
       buildTimestamp,
+      // 專案儲存庫 URL（可由環境覆蓋）
+      appRepo:
+        process.env.NUXT_PUBLIC_APP_REPO ||
+        packageJson.repository?.url ||
+        "https://github.com/mechaserpent/lucky-draw",
 
       // 人數限制
       minPlayers: parseInt(process.env.NUXT_PUBLIC_MIN_PLAYERS || "2"),
