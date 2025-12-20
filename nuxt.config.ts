@@ -4,7 +4,10 @@ const packageJson = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
 );
 const appVersion = packageJson.version || "0.0.0";
-const buildTimestamp = process.env.BUILD_TIMESTAMP || new Date().toISOString();
+const calTime = new Date();
+calTime.setUTCHours(calTime.getUTCHours() + 8);
+const calculatedTime = calTime.toISOString();
+const buildTimestamp = process.env.BUILD_TIMESTAMP || calculatedTime;
 const buildNumber =
   process.env.BUILD_NUMBER ||
   process.env.BUILD_ID ||
